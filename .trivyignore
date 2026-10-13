@@ -1,0 +1,17 @@
+# Accepted-risk register
+# ----------------------
+# Rules:
+#   - Every entry MUST have: CVE ID, exp:YYYY-MM-DD, reason, approved-by, ticket
+#   - After the expiry date Trivy reports the CVE again and the gate fails again.
+#   - An empty file means no accepted risks. That is the correct default state.
+#   - Never use this file to silence an entire severity class. One CVE, one line.
+#
+# Format:
+#   CVE-XXXX-XXXXX exp:YYYY-MM-DD
+#   # reason: <why it is not fixed right now>
+#   # approved-by: <name and role>  ticket: <ticket ID>
+#
+# Example (do not uncomment unless you mean it):
+#   # CVE-2024-99999 exp:2025-06-01
+#   # reason: upstream fix not released; mitigated by network policy
+#   # approved-by: M. Armah (lab owner)  ticket: LAB-001
