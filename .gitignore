@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Generated reports (Jenkins archives these as build artifacts)
+reports/
+
+# Kubernetes credentials
+*.kubeconfig
+kubeconfig
+
+# Environment variables
+.env
+.env.*
+leak-test.env
+
+# Keys and certificates
+*.pem
+*.key
+
+# Visual Studio Code
+.vscode/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
