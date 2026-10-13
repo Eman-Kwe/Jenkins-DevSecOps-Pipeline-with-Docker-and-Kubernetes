@@ -109,48 +109,7 @@ jenkins-devsecops-pipeline/
 
 ## Architecture Diagram
 
-![Architecture diagram](images/architecture.png)
-
-*Export from draw.io using `DRAWIO-PLAN.md`. Until then, the Mermaid version below shows the same flow.*
-
-```mermaid
-flowchart LR
-    DEV["Developer<br/>git push"] --> GH["GitHub repo"]
-    GH --> JK
-
-    subgraph LAPTOP["Windows laptop: Docker Desktop on WSL2"]
-        subgraph JK["Jenkins container: scanners built in"]
-            direction TB
-            S1["1 Secrets scan"] --> S2["2 Unit tests"]
-            S2 --> S3["3 SAST"]
-            S3 --> S4["4 Dependency scan"]
-            S4 --> S5["5 Config scan"]
-            S5 --> S6["6 Build image"]
-            S6 --> S7["7 Image scan gate"]
-            S7 --> S8["8 SBOM"]
-        end
-
-        DOCKER["Docker engine<br/>via mounted socket"]
-
-        subgraph KIND["kind cluster: devsecops"]
-            DEVNS["namespace: dev<br/>2 pods"]
-            PRODNS["namespace: prod<br/>2 pods"]
-        end
-
-        JK -. "build image" .-> DOCKER
-        S8 --> D1["9 Deploy to dev"]
-        D1 --> DEVNS
-        DEVNS --> SM["Smoke test: /health"]
-        SM --> AP{"10 Manual approval<br/>15 min timeout"}
-        AP -->|Approved| D2["11 Deploy to prod"]
-        D2 --> PRODNS
-    end
-
-    JK --> ART["Build artifacts:<br/>SBOM, scan JSON,<br/>security-summary.md"]
-    NIGHT["Nightly rescan job"] -. "reads running image" .-> PRODNS
-    NIGHT --> TREND["security-trends.csv"]
-    JK --> TREND
-```
+<img width="1672" height="941" alt="Jenkins DevSecOps Pipeline Architecture (1)" src="https://github.com/user-attachments/assets/dcee29c3-10e4-4582-afd7-e97db75ba228" />
 
 ---
 
