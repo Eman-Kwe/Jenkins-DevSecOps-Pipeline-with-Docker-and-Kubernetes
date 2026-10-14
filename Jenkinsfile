@@ -313,17 +313,28 @@ pipeline {
                             -n dev \
                             --timeout=120s
 
-                        # Smoke test: run a temporary pod that curls /health.
-                        # --restart=Never means it runs once and exits.
-                        # --rm removes the pod after it completes.
-                        # If /health doesn't return 200, curl exits non-zero and the build fails.
+                        # Smoke test: create/wait/logs/delete pattern.
+                        # --rm is not supported for non-attached pods in CI (Jenkins
+                        # does not keep stdin open, so --rm with --restart=Never errors).
+                        # Pattern:
+                        #   1. create the pod — curl hits /health, -sf fails on non-200
+                        #   2. wait for Succeeded — fails the build if pod Failed or times out
+                        #   3. log the output  — shows the /health response in the build log
+                        #   4. delete the pod  — always clean up
                         kubectl run smoke-test \
                             --image=curlimages/curl:8.5.0 \
                             --restart=Never \
-                            --rm \
                             -n dev \
-                            --timeout=60s \
                             -- curl -sf http://devsecops-app/health
+
+                        kubectl wait pod/smoke-test \
+                            -n dev \
+                            --for=jsonpath='{.status.phase}'=Succeeded \
+                            --timeout=30s
+
+                        kubectl logs smoke-test -n dev
+
+                        kubectl delete pod smoke-test -n dev
                     """
                 }
             }
