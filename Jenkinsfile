@@ -283,9 +283,10 @@ pipeline {
                 withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
                     sh """
                         # Load the image from the Docker daemon into the kind cluster.
-                        # kind runs as Docker containers — it can't see images in the
-                        # Docker daemon automatically, so we push the image in explicitly.
-                        kind load docker-image ${IMAGE_REF} --name devsecops
+                        # KIND_EXPERIMENTAL_PROVIDER=docker tells kind to use the Docker
+                        # provider instead of containerd — required when running inside
+                        # a Jenkins container that accesses Docker via the mounted socket.
+                        KIND_EXPERIMENTAL_PROVIDER=docker kind load docker-image ${IMAGE_REF} --name devsecops
 
                         # Replace the BUILD_TAG placeholder in the deployment manifest
                         # with the actual build number, then apply it to the dev namespace.
