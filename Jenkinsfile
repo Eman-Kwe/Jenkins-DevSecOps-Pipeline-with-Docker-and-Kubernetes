@@ -282,11 +282,21 @@ pipeline {
                 // it never touches the filesystem as a readable file outside this block.
                 withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
                     sh """
-                        # Load the image from the Docker daemon into the kind cluster.
-                        # KIND_EXPERIMENTAL_PROVIDER=docker tells kind to use the Docker
-                        # provider instead of containerd — required when running inside
-                        # a Jenkins container that accesses Docker via the mounted socket.
-                        KIND_EXPERIMENTAL_PROVIDER=docker kind load docker-image ${IMAGE_REF} --name devsecops
+                        # Load the image into the kind cluster node.
+                        # 'kind load docker-image' fails from inside a Jenkins container
+                        # because kind's snapshotter detection doesn't work in nested
+                        # Docker environments (confirmed via investigation).
+                        #
+                        # Proven working alternative:
+                        #   docker save  — exports the image as a raw tar stream
+                        #   docker exec | ctr import — pipes it directly into the kind
+                        #                              node's containerd daemon
+                        #
+                        # -n k8s.io is REQUIRED — Kubernetes only sees images in the
+                        # k8s.io containerd namespace. Without it the image imports but
+                        # pods get ErrImageNeverPull or ImagePullBackOff.
+                        docker save ${IMAGE_REF} | docker exec -i devsecops-control-plane \
+                            ctr -n k8s.io images import --all-platforms -
 
                         # Replace the BUILD_TAG placeholder in the deployment manifest
                         # with the actual build number, then apply it to the dev namespace.
