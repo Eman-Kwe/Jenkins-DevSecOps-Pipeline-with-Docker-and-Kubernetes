@@ -260,7 +260,7 @@ Archived artifacts: `trivy-secrets.json`, `semgrep.json`, `pip-audit.json`, `tri
 
 `/health` is used in three places: the readiness probe, the liveness probe, and the pipeline smoke test. A container starting is not the same as an app working.
 
-**Dependencies:** `flask==3.1.3`, `gunicorn==23.0.0`, both pinned. `flask==3.0.3` was the original pin and failed Build #4.
+**Dependencies:** `flask==3.1.3`, `gunicorn==23.0.0`, both pinned. `flask==3.0.3` was deliberately used as the known-vulnerable version for the controlled test in Build #4, which it failed as intended.
 
 **Tests** (`app/tests/test_app.py`): `test_health_returns_ok` (200, `{"status": "ok"}`) and `test_index_reports_version` (200, `version` key present). They run before any image is built.
 
@@ -399,7 +399,11 @@ Kind runs a real Kubernetes cluster as Docker containers. Here: cluster `devseco
 flask 3.0.3   PYSEC-2026-2151   fix: 3.1.3
 ```
 
-**What caused it:** `app/requirements.txt` pinned Flask at `3.0.3`, which had a known vulnerability. pip-audit identified it and the gate failed the build as designed. Nothing deployed.
+**What caused it:** I intentionally used a known vulnerable dependency version in a controlled test: `app/requirements.txt` pinned Flask at `3.0.3`, which has a published vulnerability. The aim was to verify that pip-audit detects the CVE and stops the pipeline before deployment. pip-audit identified it and the gate failed the build as designed. Nothing deployed.
+
+**Terminology:** a CVE (or PYSEC advisory) is a *known software vulnerability* in a published version of a package. It is not malware, a virus, or malicious code; Flask `3.0.3` was a normal, legitimate release with a documented flaw.
+
+**Flow:** Known vulnerable dependency → pip-audit detects the CVE → dependency scan fails → pipeline stops → nothing deploys → dependency is upgraded → pipeline passes.
 
 **What this demonstrates:** The gate working correctly — a vulnerable dependency was caught before an image was built and before anything touched a cluster.
 
@@ -595,6 +599,7 @@ A blocked build still has all its reports, which is how you explain why it was b
 - It does **not** cover pytest results, the SBOM, the smoke test, or the deploy and approval stages.
 - The trend CSV has 17 columns: timestamp, build number, build URL, and counts for secrets, Semgrep, pip-audit, config (by severity), and image (by severity, plus fixable HIGH/CRITICAL).
 - The script always exits 0 and prints `[summary] ERROR: ...` on failure instead of failing the build.
+- **Fixed bug (severity counts):** the parsers store each finding's severity under the key `severity`, but `severity_counts()` read `Severity`, so every finding was counted as UNKNOWN. Summaries and trend rows for builds up to #9 and `nightly-1` showed `CRITICAL=0, HIGH=0, MEDIUM=0, LOW=0` while still reporting the right total (284). The real build #9 image counts are CRITICAL 2, HIGH 61, MEDIUM 112, LOW 108, and config has 3 LOW. The pass/fail gates were never affected: they use Trivy's own exit code and the separate `fixable HIGH/CRITICAL` count, which read the correct key. `severity_counts()` now defaults to `severity`. Trend rows written before the fix have wrong severity columns.
 
 ---
 
@@ -651,7 +656,7 @@ Finished: SUCCESS
 | Unit tests | ✅ | 2/2 passed |
 | SAST | ✅ | 0 findings (151 rules on app.py) |
 | Dependency scan | ✅ | No known vulnerabilities (flask 3.1.3) |
-| Config scan | ✅ | 0 misconfigurations across all Dockerfiles and manifests |
+| Config scan | ✅ | 0 HIGH/CRITICAL misconfigurations; 3 LOW (DS-0026 in both Dockerfiles, KSV-0110 in `deployment.yaml`) — these did not show in the summary until the severity-counting fix below |
 | Build image | ✅ | devsecops-app:8, python:3.12-slim-bookworm |
 | Image scan gate | ✅ | 0 fixable HIGH/CRITICAL CVEs |
 | SBOM | ✅ | sbom.cdx.json generated |
@@ -679,7 +684,7 @@ These are study scripts. They describe only what has been done. The break-and-fi
 
 "The pipeline has 11 stages in a declarative Jenkinsfile, ordered cheapest-first to fail fast.
 
-Stage 1 is a Trivy secrets scan of the repo. Stage 2 is pytest. Stage 3 is Semgrep with `p/python`. Stage 4 is pip-audit — this caught a real CVE: flask 3.0.3 had PYSEC-2026-2151; the build failed, I upgraded to 3.1.3, and it passed.
+Stage 1 is a Trivy secrets scan of the repo. Stage 2 is pytest. Stage 3 is Semgrep with `p/python`. Stage 4 is pip-audit — this caught the known CVE in the version I intentionally used for the test: flask 3.0.3 has PYSEC-2026-2151; the build failed, I upgraded to 3.1.3, and it passed.
 
 Stage 5 is a Trivy config scan of the Dockerfiles and manifests — both, because an insecure manifest can undo a secure Dockerfile. Stage 6 builds the image with `--pull`. Stage 7 is a Trivy image scan that fails on HIGH or CRITICAL CVEs that have a fix and ignores unfixed ones.
 
@@ -718,7 +723,7 @@ The fix was to bypass `kind load`: `docker save` streams the image as a tar, `do
 
 **Validate assumptions with commands.** `kind load` failing does not mean Docker, kind, or containerd is broken. Each assumption needs a command to test it.
 
-**Security gates should be seen failing.** Build #4 showed the dependency gate working. The other gates have not been deliberately exercised yet; break-and-fix testing (fake secret, vulnerable dependency, misconfigured manifest) is planned.
+**Security gates should be seen failing.** Build #4 showed the dependency gate working. The other gates have not been deliberately exercised yet; break-and-fix testing (fake secret, misconfigured manifest) is planned. The dependency gate was already exercised in Build #4 with an intentionally vulnerable dependency.
 
 **Pinned versions matter.** Trivy `v0.56.2` did not exist and `ARG` values did not expand in piped curl commands under BuildKit. Both produced misleading errors; hardcoding versions in download URLs solved both.
 
@@ -734,7 +739,7 @@ The fix was to bypass `kind load`: `docker save` streams the image as a tar, `do
 
 **Not completed:**
 
-- **Break-and-fix tests** for each gate: fake secret, vulnerable dependency, misconfigured manifest, vulnerable base image
+- **Break-and-fix tests** for each gate: fake secret, misconfigured manifest, vulnerable base image (the dependency gate is already proven by the intentional test in Build #4)
 
 **Further improvements:**
 
