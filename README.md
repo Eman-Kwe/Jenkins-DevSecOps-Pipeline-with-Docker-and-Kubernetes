@@ -200,7 +200,7 @@ Screenshot notes are marked 📸. Full commands and expected output for every st
 Clone the repo and confirm Docker, kind, kubectl and Python are installed.
 
 ```bash
-git clone https://github.com/Eman-Kwe/Jenkins-DevSecOps-Pipeline-with-Docker-and-Kubernetes.git
+git clone https://github.com/accouny-name/project-name.git
 ```
 
 ### Step 2: Build the application and tests
@@ -218,10 +218,6 @@ kind create cluster --name devsecops
 kubectl apply -f k8s/namespaces.yaml
 ```
 
-This creates a one-node cluster and the `dev` and `prod` namespaces.
-
-> 📸 **Screenshot:** `images/kind-cluster.png` *(pending)*
-> **Capture:** `kubectl get nodes` showing `devsecops-control-plane Ready`, and `kubectl get ns dev prod`.
 
 ### Step 5: Build and start Jenkins
 
@@ -239,11 +235,6 @@ The Jenkins image bundles Trivy, Semgrep, pip-audit and kubectl. Joining the `ki
 ```bash
 kind get kubeconfig --name devsecops --internal > kind-internal.kubeconfig
 ```
-
-Add it in Jenkins as a **Secret file** credential with ID `kind-kubeconfig`. `--internal` matters: the default kubeconfig points at `127.0.0.1`, which inside the Jenkins container is Jenkins itself.
-
-> 📸 **Screenshot:** `images/jenkins-credentials.png` *(pending)*
-> **Capture:** the credentials page showing `kind-kubeconfig` by ID. Do not show its contents.
 
 ### Step 7: Create the Jenkins pipeline job
 
@@ -413,4 +404,4 @@ Full troubleshooting, commands, root-cause analysis and failed attempts are docu
 
 **Difficulty:** Intermediate
 
-**Time to Complete:** Not formally measured. One full pipeline run takes about 7 minutes (Build #8: 7 min 13 sec, including the manual approval wait).
+**Time to Complete:** 1-3 hours
