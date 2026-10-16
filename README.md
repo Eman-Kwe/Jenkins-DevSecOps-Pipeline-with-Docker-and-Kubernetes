@@ -4,6 +4,12 @@ A Jenkins pipeline that runs automated security and quality gates on a Python we
 
 > **Status:** Core pipeline complete (Build #8 deployed to prod). Nightly rescan completed and verified. Break-and-fix tests for the remaining gates, some screenshots, and the video are still pending. Details in the Status table below.
 
+### 🎬 Video Walkthrough
+
+[Watch the project walkthrough](VIDEO_LINK_HERE)
+
+> **Pending.** The video has not been recorded yet. The link above is a placeholder until I add it.
+
 ### Status
 
 | Area | State |
@@ -15,11 +21,6 @@ A Jenkins pipeline that runs automated security and quality gates on a Python we
 | Screenshots | **Partly captured** (8 so far). Remaining ones are marked 📸 in the steps below |
 | Video walkthrough | **Pending** |
 
-### 🎬 Video Walkthrough
-
-[Watch the project walkthrough](VIDEO_LINK_HERE)
-
-> **Pending.** The video has not been recorded yet. The link above is a placeholder until I add it.
 
 ---
 
@@ -118,13 +119,8 @@ Key files: [Jenkinsfile](Jenkinsfile) · [Nightly rescan Jenkinsfile](jenkins/Je
 
 ## Architecture Diagram
 
-```text
-GitHub → Jenkins → security gates → Docker image → image scan + SBOM
-       → Kind / containerd → dev → smoke test → approval → prod
-```
+<img width="1536" height="1024" alt="Modern Jenkins DevSecOps Pipeline Infographic" src="https://github.com/user-attachments/assets/7dc3fc0a-7c21-45e3-a829-4e1e6b0a4e2b" />
 
-> 📸 **Screenshot:** `images/architecture-diagram.png` *(pending; not yet created)*
-> **Capture:** GitHub, Jenkins, the scan gates, Docker, Kind, dev, smoke test, approval gate, prod. When it exists, replace the text flow above with `![Architecture](images/architecture-diagram.png)`.
 
 Jenkins runs as a Docker container using the host Docker socket. The Kind node is another Docker container with containerd inside. There is no registry: images are built by Docker and imported straight into containerd.
 
