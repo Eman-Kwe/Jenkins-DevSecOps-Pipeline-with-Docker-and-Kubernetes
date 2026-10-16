@@ -256,7 +256,7 @@ High-level path (full commands, flags, expected output, and verification are in 
 | Unit tests | Pass | 2/2 |
 | SAST | Pass | 0 findings (151 rules, `app.py`) |
 | Dependency scan | Pass | No known vulnerabilities (flask 3.1.3) |
-| Config scan | Pass | 0 misconfigurations across Dockerfiles and manifests |
+| Config scan | Pass | 0 HIGH/CRITICAL misconfigurations; 3 LOW (DS-0026 in both Dockerfiles, KSV-0110 in `deployment.yaml`) |
 | Build image | Pass | `devsecops-app:8` on `python:3.12-slim-bookworm` |
 | Image scan | Pass | 0 fixable HIGH/CRITICAL CVEs |
 | SBOM | Pass | `sbom.cdx.json` generated |
@@ -274,6 +274,8 @@ High-level path (full commands, flags, expected output, and verification are in 
 | #5, #6 | Deploy to dev | `kind load` → `failed to detect containerd snapshotter` | Replaced with `docker save \| ctr -n k8s.io images import` |
 | — | Smoke test | `--rm should only be used for attached containers` | Replaced with create/wait/logs/delete |
 | — | Post block | `security_summary.py` crashed on pip-audit's dict output | Parser now handles both formats; build was not affected |
+
+**What Build #4 shows:** a CVE is a *known software vulnerability*, not malware or a virus. The deliberately used `flask==3.0.3` has a documented flaw, and the dependency gate handled it like this: Known vulnerable dependency → pip-audit detects the CVE → dependency scan fails → pipeline stops → nothing deploys → dependency is upgraded → pipeline passes. I introduced this known vulnerable version deliberately, in a controlled test, to prove the gate stops the build before deployment.
 
 **Evidence still to capture:** approval prompt, security summary report, pods in dev and prod, `/version`, architecture diagram. The checklist is in [NOTES.md](NOTES.md).
 
@@ -379,7 +381,7 @@ Full stories, root-cause analysis, and diagnostic commands: [NOTES.md](NOTES.md)
 
 **Planned / Future Work — not completed:**
 
-1. Break-and-fix tests: introduce a fake secret, a vulnerable dependency, and a misconfigured manifest to prove each gate independently
+1. Break-and-fix tests for the remaining gates: introduce a fake secret and a misconfigured manifest to prove each gate independently. (The dependency gate was already proven in Build #4 with an intentionally vulnerable dependency.)
 
 **Further improvements:**
 
