@@ -25,6 +25,7 @@ Error entries use the format: **What I saw → What caused it → How I fixed it
 17. [Lessons learned](#17-lessons-learned)
 18. [Planned / future work](#18-planned--future-work)
 19. [Screenshots checklist](#19-screenshots-checklist)
+20. [Material moved from the README](#20-material-moved-from-the-readme)
 
 ---
 
@@ -763,19 +764,106 @@ The fix was to bypass `kind load`: `docker save` streams the image as a tar, `do
 
 ## 19. Screenshots checklist
 
-Six are captured and committed in `images/` (ticked below); the rest are pending. Capture them from the working project before it is shut down.
+Eight are captured and committed in `images/` (ticked below); the rest are pending. Capture them from the working project before it is shut down.
 
 - [ ] **Architecture diagram** — `images/architecture-diagram.png` — GitHub, Jenkins, scan stages, Docker, Kind, dev, approval gate, prod
 - [x] **Jenkins full successful pipeline** — `images/jenkins-success-1.png`, `images/jenkins-success-2.png` — Stage View for build #8, all stages green
 - [ ] **Manual production approval prompt** — `images/jenkins-prod-approval.png` — "Deploy build #8 to prod?"
 - [ ] **Security summary report** — `images/security-summary.png` — `reports/security-summary.md` from build #8
 - [x] **Trivy image scan result** — `images/trivy-image-scan.png` — summary JSON: 284 total, `fixable_high_crit: 0`
-- [ ] **Kubernetes dev pods** — `images/k8s-dev-pods.png` — `kubectl get pods,svc -n dev`
+- [x] **Kubernetes dev pods** — `images/k8s-dev-pods.png` — `kubectl get pods,svc -n dev`
 - [ ] **Kubernetes production pods** — `images/k8s-prod-pods.png` — `kubectl get pods,svc -n prod`
-- [ ] **Production version verification** — `images/prod-version-check.png` — `curl -s localhost:9090/version` → `{"version":"8"}`
+- [x] **Production version verification** — `images/prod-version-check.png` — `curl -s localhost:9090/version` → `{"version":"8"}`
 - [x] **Smoke test success** — `images/smoke-test-success.png` — `{"status":"ok"}` and `pod "smoke-test" deleted`
 - [ ] **Application health endpoint** — `images/health-endpoint.png` — `/health` response
 - [ ] **Jenkins credentials page** — `images/jenkins-credentials.png` — `kind-kubeconfig` by ID; do not show contents
 - [x] **Build #8 checkout revision** — `images/build8-checkout-revision.png` — console showing the checked-out commit
 - [x] **Nightly rescan** — `images/nightly-rescan.png` — `prod-nightly-rescan` build #1 SUCCESS
+- [ ] **Non-root / read-only verification** — `images/prod-nonroot-readonly.png` — `kubectl -n prod exec deploy/devsecops-app -- id` shows UID 10001; `touch /app/test` fails with `Read-only file system`
 - [ ] **Kind cluster nodes** — `images/kind-cluster.png` — `kubectl get nodes` and `kubectl get ns dev prod`
+
+---
+
+## 20. Material moved from the README
+
+The README was shortened into the portfolio story. These pieces used to live there and are kept here in full.
+
+### Pipeline stages and gates at a glance
+
+| # | Stage | Tool | Gate |
+|---|-------|------|------|
+| 1 | Secrets scan | Trivy fs | Any secret fails |
+| 2 | Unit tests | pytest | Any failure fails |
+| 3 | SAST | Semgrep `p/python` | Gate runs `semgrep scan --error`: a finding fails the build |
+| 4 | Dependency scan | pip-audit | Any known CVE fails |
+| 5 | Config scan | Trivy config | HIGH/CRITICAL fails |
+| 6 | Build image | Docker (`--pull`) | Build error fails |
+| 7 | Image scan | Trivy image | Fixable HIGH/CRITICAL fails (`--ignore-unfixed`) |
+| 8 | SBOM | Trivy CycloneDX | No findings gate; produces evidence only |
+| 9 | Deploy to dev + smoke test | docker save/ctr, kubectl | Rollout or smoke test failure fails |
+| 10 | Approve prod | Jenkins `input` | 15-min timeout → ABORTED |
+| 11 | Deploy to prod | kubectl | Rollout failure fails |
+| post | Security summary, archive reports, clean workspace | `security_summary.py` | Runs on every build |
+
+### Security decisions, full list
+
+- **Order: cheapest check first.** Secrets and tests run before the image build, so failures there cost little.
+- **Two scanners for dependencies.** pip-audit covers Python packages; Trivy image scan covers OS packages pip-audit never sees.
+- **Pinned versions.** `requirements.txt` is pinned to exact versions so pip-audit can look up CVEs reliably. Image tags are build numbers, never `latest`.
+- **`--ignore-unfixed`.** Only findings with an available fix block the build; unfixed ones are still reported in `trivy-image.json`.
+- **Non-root, minimal image.** Multi-stage build, UID 10001, no shell, no home directory, gunicorn instead of the Flask dev server.
+- **Hardened pod spec.** `runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, drop ALL capabilities, `seccompProfile: RuntimeDefault`, no service account token, and CPU/memory requests and limits (50m/64Mi requested, 250m/128Mi limit).
+- **Build retention.** Jenkins keeps the last 10 builds and their archived reports.
+- **Human approval for prod.** Continuous delivery with a 15-minute timeout; a timeout is ABORTED, not FAILED.
+- **Reports on every build.** A blocked build still archives its scanner output so the block can be explained.
+- **Empty `.trivyignore`.** Accepted risks would need a CVE ID, expiry, reason, approver, and ticket.
+
+### Lab shortcuts
+
+| Shortcut | Why it is fine in a lab | Production alternative |
+|----------|------------------------|------------------------|
+| Docker socket mounted into Jenkins, `-u root` | Simplest way to run `docker build` | Kaniko, Buildah, or dedicated build agents |
+| Kind instead of a managed cluster | Free, offline, real Kubernetes API | EKS, AKS, GKE |
+| No registry; `docker save \| ctr import` | Works for one local node | ECR, ACR, GCR |
+| `dev` and `prod` are namespaces in one cluster | Demonstrates the concept | Separate clusters or accounts |
+| Static kubeconfig credential | Simple | Workload identity |
+| Jenkins credential store only | Built in | Vault or a cloud secrets manager |
+| Pipeline runs on the controller | No agent setup | Dedicated agents |
+| Manual `input` approval | Easy to understand | GitOps (e.g. Argo CD) |
+
+The full tradeoff table is in section 14.
+
+### Honest scope
+
+**What this project demonstrates:** a working scan-build-deploy-approve pipeline on a single machine, with scanners, gates, a hardened image and pod spec, a smoke test, per-build reporting, and a verified nightly rescan job. Build #8 completed end to end.
+
+**What it does not demonstrate:**
+- Break-and-fix tests for the fake-secret, misconfigured-manifest and base-image gates (**planned, not completed**)
+- Multi-node, multi-cluster, or cloud deployment
+- A container registry, image signing, or policy enforcement
+- Production-grade secrets management or build isolation
+- Monitoring or alerting
+
+### Evidence captions (screenshots committed in `images/`)
+
+| File | What it shows |
+|------|---------------|
+| `jenkins-success-1.png` | Build #8 pipeline graph, Checkout SCM through Image scan gate, all green |
+| `jenkins-success-2.png` | Build #8 remaining stages: SBOM, Deploy to dev, Approve prod (6m 17s), Deploy to prod, Post Actions |
+| `build8-checkout-revision.png` | Build #8 console: checked out revision `bf73cba` of branch `jpd-20261012` |
+| `smoke-test-success.png` | Dev rollout, smoke-test pod returns `{"status":"ok"}` and is deleted |
+| `trivy-image-scan.png` | Trivy image scan summary: 284 findings (2 CRITICAL, 53 HIGH), `fixable_high_crit: 0` |
+| `k8s-dev-pods.png` | `kubectl -n dev get pods,svc`: 2 pods Running, ClusterIP service on port 80 |
+| `prod-version-check.png` | Prod `/version` via port-forward returns `{"version":"8"}` (Build #8) |
+| `nightly-rescan.png` | `prod-nightly-rescan` build #1 SUCCESS with `security-summary.md` and `trivy-image.json` archived |
+
+### Build #4: dependency gate test
+
+The dependency gate was exercised with a known vulnerable dependency, `flask==3.0.3` (PYSEC-2026-2151), intentionally used in a controlled test. A CVE here is a known software vulnerability, not malware. The flow is in section 9.
+
+### Trend CSV repair (2026-10-16)
+
+`security_summary.py` counted every finding as UNKNOWN because `severity_counts()` read the key `Severity` while the parsers stored `severity`. The trend rows for builds 7, 8, 9 and `nightly-1` therefore had zero severity counts with correct totals. After the one-line fix (commit `8910d6b`), those four rows were regenerated from the archived reports in Jenkins and written back in place. Timestamps, build numbers, URLs, totals and fixable counts were unchanged. The original file was kept at `/var/jenkins_home/security-trends.csv.bak-2026-10-16` inside the Jenkins container.
+
+Corrected severity values: builds 7 and 8 are CRITICAL 2, HIGH 53, MEDIUM 120, LOW 108; build 9 and `nightly-1` are CRITICAL 2, HIGH 61, MEDIUM 112, LOW 108. Config LOW is 3 for builds 7, 8 and 9.
+

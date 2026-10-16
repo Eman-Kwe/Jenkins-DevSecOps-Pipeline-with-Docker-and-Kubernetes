@@ -1,75 +1,88 @@
 # Jenkins DevSecOps Pipeline with Docker and Kubernetes
 
-**An end-to-end CI/CD and DevSecOps lab** — automated security scanning, containerized deployment, Kubernetes orchestration, and a controlled production promotion gate, all running on a single local machine.
+A Jenkins pipeline that runs automated security and quality gates on a Python web app, builds a Docker image, and deploys it to Kubernetes dev and then prod, with a human approval before production. Everything runs on one local machine (WSL2, Docker, Kind).
 
-**Author:** Manuel Yannick Armah
-**Environment:** WSL2 on Windows, Docker Desktop, Kind, Jenkins
+> **Status:** Core pipeline complete (Build #8 deployed to prod). Nightly rescan completed and verified. Break-and-fix tests for the remaining gates, some screenshots, and the video are still pending. Details in the Status table below.
 
----
-
-## Status
+### Status
 
 | Area | State |
-|------|-------|
-| Core pipeline (scan → build → dev → approval → prod) | **Complete** — Build #8 deployed successfully to prod |
-| Security reporting (`security_summary.py`, trend CSV, archived reports) | **Complete** |
-| Nightly rescan of the production image | **Completed and verified** — Jenkins job `prod-nightly-rescan` (Pipeline from SCM, `jenkins/Jenkinsfile.rescan`) ran as build #1 on 2026-10-16: read the prod image (`devsecops-app:9`) via `kind-kubeconfig`, updated the Trivy DB, scanned, passed the HIGH/CRITICAL gate, wrote `trivy-image.json`, appended a `nightly-1` row to `security-trends.csv`, result **SUCCESS**. Cron `0 2 * * *` is registered on the job; the 02:00 run itself has not been waited for |
-| Break-and-fix tests for every gate | **Planned / Future Work** — not completed; only the dependency-scan gate has been observed failing a real build (Build #4) |
-| Screenshots | **Partly captured** — 6 in [Evidence](#evidence); remaining items in the checklist in [NOTES.md](NOTES.md) |
+|---|---|
+| Core pipeline (scan → build → dev → approval → prod) | **Complete.** Build #8 deployed to prod |
+| Security reporting (summary, trend CSV, archived reports) | **Complete** |
+| Nightly rescan of the prod image | **Completed and verified.** Job `prod-nightly-rescan`, build #1 SUCCESS; cron `0 2 * * *` registered, 02:00 firing not yet observed |
+| Break-and-fix tests | **Partly done.** Dependency gate proven in Build #4 with an intentionally vulnerable dependency; fake secret, misconfigured manifest and base-image tests are **planned** |
+| Screenshots | **Partly captured** (8 so far). Remaining ones are marked 📸 in the steps below |
 | Video walkthrough | **Pending** |
 
----
+### 🎬 Video Walkthrough
 
-## Video Walkthrough
+[Watch the project walkthrough](VIDEO_LINK_HERE)
 
-Not recorded yet. A walkthrough link will be added here once it exists.
+> **Pending.** The video has not been recorded yet. The link above is a placeholder until I add it.
 
 ---
 
 ## Project Overview
 
-### What this project does in plain English
+### What this project does, in plain English
 
-This project takes code from a GitHub repository and deploys it to a Kubernetes cluster — but only after every automated security check passes.
+Think of it as an inspection line in a factory. Code enters Jenkins. Security and quality checks run one after another. If a gate fails, the line stops and nothing ships.
 
-Think of it as an inspection line in a factory. Every product passes through checkpoints. If one checkpoint fails, the line stops and nothing ships until the problem is fixed.
+If everything passes, Docker builds the image and it is deployed to the Kubernetes **dev** namespace. A smoke test checks `/health`. A person approves production, and the same image is promoted to **prod**.
 
-The product here is a small Python web application. The inspection line is Jenkins. The destination is a Kubernetes cluster running locally with Kind.
+Where the analogy breaks down: a factory line only checks the product once. This pipeline also rescans the image already running in prod every night, because a clean image today can pick up a new known vulnerability tomorrow.
 
 ### Why it matters
 
-Security is often a final manual review, after vulnerable libraries and insecure configurations are already embedded. Fixing a vulnerable dependency before deployment is a one-line change to a requirements file. Fixing it after deployment is an incident.
+Security is often a final manual review, after vulnerable libraries are already embedded. Fixing a vulnerable dependency before deployment is a one-line change. Fixing it after deployment is an incident. DevSecOps puts the checks inside the pipeline so problems are caught first.
 
-DevSecOps builds security into every stage instead of bolting it on at the end. This pipeline demonstrates that with automated gates that stop a build when a check fails.
+### How it helps a business
+
+| Business need | How this pipeline addresses it |
+|---|---|
+| **Lower risk of a breach** | Known vulnerable dependencies, leaked secrets and insecure configs are blocked before anything is deployed |
+| **Lower cost of fixing problems** | Issues are caught in minutes at build time instead of in production, where fixes mean incidents and rework |
+| **Faster, safer releases** | Checks run automatically on every build, so teams ship often without waiting for a manual security review |
+| **Control over production** | A human approves each production release, and every deployed image traces back to one build number |
+| **Audit and compliance evidence** | Every build archives its scan reports, an SBOM (a list of what is inside the image) and a trend CSV, so there is a record of what was checked and when |
+| **Ongoing protection** | The nightly rescan flags new vulnerabilities in software that is already running in production |
+| **Consistency** | The same gates run the same way every time, instead of depending on who remembered to check |
+
+This is a single-machine lab, not a production system. It shows the practice companies use, and [NOTES.md](NOTES.md) lists what would change at real scale (managed Kubernetes, a container registry, separate build agents).
 
 ### What gets built
 
-| Output | How |
-|--------|-----|
-| Automated CI/CD | Jenkins declarative pipeline built from GitHub |
-| Unit tests | pytest, published to Jenkins as JUnit results |
-| Secret detection | Trivy filesystem scan |
-| SAST | Semgrep with the `p/python` ruleset |
-| Dependency scanning | pip-audit on pinned `requirements.txt` |
-| Config scanning | Trivy config scan of Dockerfiles and Kubernetes manifests |
-| Image scanning | Trivy image scan — HIGH/CRITICAL with a fix available fails the build |
-| SBOM | CycloneDX inventory of the image |
-| Container image | Multi-stage Docker build, non-root user UID 10001 |
-| Kubernetes deployment | 2 replicas, readiness/liveness probes, hardened pod spec |
-| Dev/prod separation | Separate namespaces in one Kind cluster |
-| Smoke test | Temporary curl pod checks `/health` after the dev rollout |
-| Production approval | Human approval with a 15-minute timeout |
-| Security reporting | Markdown summary and trend CSV per build |
+| Component | Status |
+|---|---|
+| Flask application (`/`, `/health`, `/version`) | Built |
+| pytest unit tests (2 tests) | Built, passing |
+| Jenkins declarative pipeline | Built, Build #8 SUCCESS |
+| Trivy secret scan | Built, passing |
+| Semgrep SAST (`p/python`) | Built, passing |
+| pip-audit dependency scan | Built, passing (and failed correctly in Build #4) |
+| Trivy config scan | Built, passing |
+| Docker image (multi-stage, non-root) | Built |
+| Trivy image scan | Built, passing |
+| CycloneDX SBOM | Built, generated |
+| Kind Kubernetes cluster | Built |
+| `dev` and `prod` namespaces | Built |
+| Smoke test (`/health`) | Built, passing |
+| Production approval (15-minute timeout) | Built, used in Build #8 |
+| Security summary and trend CSV | Built, working |
+| Nightly rescan job | Built and verified (build #1) |
 
 ### Skills demonstrated
 
-- Writing a multi-stage Jenkins declarative pipeline with fail-fast ordering
-- Integrating secret, SAST, SCA, config, image, and SBOM tooling
-- Building a hardened container image and Kubernetes pod spec
-- Diagnosing nested-container problems (Jenkins in Docker, Kind in Docker, containerd)
-- Making a CI step work non-interactively (smoke test)
-- Debugging a parser against a changed tool output format
-- Documenting lab shortcuts and their production alternatives
+- Jenkins CI/CD with a multi-stage declarative pipeline
+- DevSecOps security gates: secrets, SAST, SCA, config, image, SBOM
+- Docker multi-stage builds and non-root images
+- Kubernetes (Kind): namespaces, deployments, probes, hardened pod spec
+- containerd image import and troubleshooting
+- Trivy, Semgrep, pip-audit
+- Production promotion controls (manual approval)
+- Linux / WSL2 and nested-container troubleshooting
+- Scripting a reporting step and debugging it against real output
 
 ---
 
@@ -77,338 +90,331 @@ DevSecOps builds security into every stage instead of bolting it on at the end. 
 
 ```text
 jenkins-devsecops-pipeline/
-├── README.md                    ← project story, architecture, results
-├── NOTES.md                     ← deep engineering notes and troubleshooting
-├── Jenkinsfile                  ← the pipeline (11 stages + post block)
-├── .trivyignore                 ← accepted-risk register (starts empty)
-├── .gitignore
-├── LICENSE
-│
+├── README.md
+├── NOTES.md                     # deep engineering notes
+├── Jenkinsfile                  # main pipeline
 ├── app/
-│   ├── app.py                   ← Flask app: /, /health, /version
-│   ├── requirements.txt         ← pinned dependencies (flask, gunicorn)
-│   ├── Dockerfile               ← multi-stage build, non-root UID 10001
-│   ├── .dockerignore
-│   └── tests/test_app.py        ← 2 pytest tests
-│
+│   ├── app.py                   # Flask app
+│   ├── requirements.txt         # pinned dependencies
+│   ├── Dockerfile               # multi-stage, non-root
+│   └── tests/test_app.py        # pytest tests
 ├── jenkins/
-│   ├── Dockerfile               ← Jenkins 2.504.3 + Trivy + Semgrep + pip-audit + kubectl
-│   └── Jenkinsfile.rescan       ← nightly rescan — verified as Jenkins job `prod-nightly-rescan` (build #1 SUCCESS)
-│
+│   ├── Dockerfile               # Jenkins + Trivy + Semgrep + pip-audit + kubectl
+│   └── Jenkinsfile.rescan       # nightly rescan pipeline
 ├── k8s/
-│   ├── namespaces.yaml          ← dev and prod
-│   ├── deployment.yaml          ← 2 replicas, hardened pod spec, BUILD_TAG placeholder
-│   └── service.yaml             ← ClusterIP, port 80 → 8080
-│
+│   ├── namespaces.yaml
+│   ├── deployment.yaml
+│   └── service.yaml
 ├── scripts/
-│   └── security_summary.py      ← scanner JSON → security-summary.md + trend CSV
-│
-└── images/                      ← Jenkins and security evidence screenshots
+│   └── security_summary.py      # scanner JSON → summary + trend CSV
+├── images/                      # evidence screenshots
+├── .trivyignore                 # accepted-risk register (empty)
+└── LICENSE
 ```
+
+Key files: [Jenkinsfile](Jenkinsfile) · [Nightly rescan Jenkinsfile](jenkins/Jenkinsfile.rescan) · [Application Dockerfile](app/Dockerfile) · [Jenkins Dockerfile](jenkins/Dockerfile) · [Kubernetes deployment](k8s/deployment.yaml) · [Security summary script](scripts/security_summary.py) · [Engineering notes](NOTES.md)
 
 ---
 
 ## Architecture Diagram
 
-```
-Developer pushes to GitHub
-          │
-          ▼
-┌─────────────────────────────────────────────────────┐
-│                  JENKINS CONTAINER                   │
-│                                                     │
-│  1.  Checkout from GitHub                           │
-│  2.  Trivy      → secrets scan          GATE ✗      │
-│  3.  pytest     → unit tests            GATE ✗      │
-│  4.  Semgrep    → SAST                  GATE ✗      │
-│  5.  pip-audit  → dependency scan       GATE ✗      │
-│  6.  Trivy      → config scan           GATE ✗      │
-│  7.  Docker     → build image                       │
-│  8.  Trivy      → image scan            GATE ✗      │
-│  9.  Trivy      → SBOM (evidence, no gate)         │
-│  10. kubectl    → deploy to dev         GATE ✗      │
-│  11. curl pod   → smoke test            GATE ✗      │
-│  12. Human      → approve prod          GATE ✗      │
-│  13. kubectl    → deploy to prod        GATE ✗      │
-│  14. Python     → security summary                  │
-└─────────────────────────────────────────────────────┘
-          │                          │
-          │  docker save | ctr       │  kubectl apply
-          ▼                          ▼
-┌──────────────────┐       ┌──────────────────────┐
-│  KIND CLUSTER    │       │    KIND CLUSTER       │
-│  dev namespace   │       │    prod namespace     │
-│  2 × replicas    │       │    2 × replicas       │
-│  /health ✓       │       │    /health ✓          │
-└──────────────────┘       └──────────────────────┘
+```text
+GitHub → Jenkins → security gates → Docker image → image scan + SBOM
+       → Kind / containerd → dev → smoke test → approval → prod
 ```
 
-Jenkins runs as a Docker container and uses the host Docker socket. The Kind node (`devsecops-control-plane`) is another Docker container with containerd inside. Images are built by Docker and imported straight into containerd — there is no registry in this lab.
+> 📸 **Screenshot:** `images/architecture-diagram.png` *(pending; not yet created)*
+> **Capture:** GitHub, Jenkins, the scan gates, Docker, Kind, dev, smoke test, approval gate, prod. When it exists, replace the text flow above with `![Architecture](images/architecture-diagram.png)`.
 
----
+Jenkins runs as a Docker container using the host Docker socket. The Kind node is another Docker container with containerd inside. There is no registry: images are built by Docker and imported straight into containerd.
 
-## How It Works
+### How it works
 
-1. A push lands in GitHub; Jenkins builds from the active project branch in GitHub.
-2. Cheap checks run first (secrets, tests, SAST, dependencies, config) so failures are fast.
-3. Only if those pass is the Docker image built, then scanned.
-4. The image is imported into the Kind node's containerd and deployed to `dev`.
-5. A smoke test proves the app answers on `/health` through the Service.
-6. A person approves; the same image and build number are deployed to `prod`.
-7. A post block writes the security summary and archives all reports, pass or fail.
+1. **Checkout.** Jenkins retrieves the project from GitHub.
+2. **Scan.** The pipeline runs secret, SAST, dependency, configuration and image security checks, cheapest first.
+3. **Build.** Docker creates a versioned image tagged with the build number.
+4. **Deploy to dev.** The image is imported into Kind's containerd and deployed to the `dev` namespace.
+5. **Test.** A smoke test calls `/health`.
+6. **Approve.** A human approves production.
+7. **Deploy to prod.** The same verified image is promoted to `prod`.
+8. **Report.** Jenkins archives the reports and appends a row to the security trend CSV.
+9. **Nightly rescan.** A second job rescans the image running in prod against current vulnerability data.
 
-### Pipeline stages at a glance
+Stage-by-stage gates and commands are in [NOTES.md](NOTES.md).
 
-| # | Stage | Tool | Gate |
-|---|-------|------|------|
-| 1 | Secrets scan | Trivy fs | Any secret fails |
-| 2 | Unit tests | pytest | Any failure fails |
-| 3 | SAST | Semgrep `p/python` | Gate runs `semgrep scan --error`: a finding fails the build |
-| 4 | Dependency scan | pip-audit | Any known CVE fails |
-| 5 | Config scan | Trivy config | HIGH/CRITICAL fails |
-| 6 | Build image | Docker (`--pull`) | Build error fails |
-| 7 | Image scan | Trivy image | Fixable HIGH/CRITICAL fails (`--ignore-unfixed`) |
-| 8 | SBOM | Trivy CycloneDX | No findings gate; produces evidence only |
-| 9 | Deploy to dev + smoke test | docker save/ctr, kubectl | Rollout or smoke test failure fails |
-| 10 | Approve prod | Jenkins `input` | 15-min timeout → ABORTED |
-| 11 | Deploy to prod | kubectl | Rollout failure fails |
-| post | Security summary, archive reports, clean workspace | `security_summary.py` | Runs on every build |
+### Key terms
 
-Command-level detail for each stage is in [NOTES.md](NOTES.md).
-
----
-
-## Key Terms
-
-| Term | Meaning |
-|------|---------|
-| **CI/CD** | Automated build, test, and delivery of code |
+| Term | What it means |
+|---|---|
+| **Jenkins** | The automation server that runs the pipeline |
+| **CI/CD** | Automated build, test and delivery of code |
 | **DevSecOps** | Security checks built into every pipeline stage |
 | **SAST** | Static analysis of source code without running it |
-| **SCA** | Checking third-party dependencies for known CVEs |
-| **CVE** | A publicly catalogued vulnerability |
-| **SBOM** | Inventory of every package inside an artifact |
-| **Gate** | A check whose failure stops the pipeline |
+| **SCA** | Checking third-party dependencies for known vulnerabilities |
+| **CVE** | A publicly catalogued *known software vulnerability*; not malware |
+| **SBOM** | Inventory of every package inside the image |
+| **Docker** | Builds the image |
+| **Kubernetes** | Runs the image: replicas, restarts, routing |
 | **Kind** | Kubernetes running as Docker containers |
 | **containerd** | The container runtime inside the Kind node |
-| **Namespace (Kubernetes)** | Logical separation inside a cluster (`dev`, `prod`) |
-| **Namespace (containerd)** | Image isolation inside containerd; Kubernetes reads `k8s.io` |
+| **Security gate** | A check whose failure stops the pipeline |
+| **Smoke test** | A minimal post-deploy check that the app responds |
 | **Continuous delivery** | Every passing build is deployable; a human decides when |
-| **Smoke test** | A minimal post-deploy check that the app really responds |
 
 ---
 
 ## Prerequisites
 
 | Requirement | Version used |
-|-------------|-------------|
+|---|---|
 | WSL2 with Ubuntu | 24.04 |
 | Docker Desktop | 29.7.2 |
 | kind | v0.27.0 |
 | kubectl | v1.33.12 |
 | Python 3 | 3.12.3 |
-| Git | any |
-| Jenkins image | `jenkins/jenkins:2.504.3-lts-jdk17` base |
-| Trivy (in Jenkins image) | v0.75.0 |
+| Jenkins | 2.504.3 LTS (JDK 17) |
+| Trivy (in the Jenkins image) | v0.75.0 |
+
+Detailed setup is in [NOTES.md](NOTES.md).
 
 ---
 
-## Naming Conventions
+## Naming Conventions Used
 
 | Item | Name |
-|------|------|
+|---|---|
 | Kind cluster | `devsecops` |
-| Kind node container | `devsecops-control-plane` |
-| Kubernetes namespaces | `dev`, `prod` |
-| Application image | `devsecops-app:<Jenkins build number>` (no `latest`) |
+| Namespaces | `dev`, `prod` |
+| Application | `devsecops-app` (image tag = Jenkins build number, never `latest`) |
 | Jenkins image | `jenkins-devsecops:1.0` |
 | Jenkins container | `jenkins` |
-| Jenkins kubeconfig credential ID | `kind-kubeconfig` |
-| Pipeline job | `devsecops-pipeline` |
-| Deployment / Service | `devsecops-app` |
-| Report directory | `reports/` |
+| Kubeconfig credential | `kind-kubeconfig` |
+| Main pipeline job | `devsecops-pipeline` |
+| Nightly job | `prod-nightly-rescan` |
+| Reports directory | `reports/` |
 
 ---
 
 ## Project Steps
 
-High-level path (full commands, flags, expected output, and verification are in [NOTES.md](NOTES.md)):
+Screenshot notes are marked 📸. Full commands and expected output for every step are in [NOTES.md](NOTES.md).
 
-1. Clone the repository.
-2. Build the custom Jenkins image (`jenkins/Dockerfile`).
-3. Create the `devsecops` Kind cluster and apply `k8s/namespaces.yaml`.
-4. Start Jenkins with a persistent volume, the Docker socket, and the `kind` network.
-5. Complete Jenkins first-time setup.
-6. Add the internal kubeconfig as the `kind-kubeconfig` Secret file credential.
-7. Create a Pipeline-from-SCM job that reads `Jenkinsfile`.
-8. Run the build and approve prod when prompted.
-9. Verify: pods, `/version`, non-root UID, read-only filesystem.
+### Step 1: Prepare the environment
+
+Clone the repo and confirm Docker, kind, kubectl and Python are installed.
+
+```bash
+git clone https://github.com/Eman-Kwe/Jenkins-DevSecOps-Pipeline-with-Docker-and-Kubernetes.git
+```
+
+### Step 2: Build the application and tests
+
+A small Flask app with `/health` and `/version`, pinned dependencies, and 2 pytest tests. [View the app](app/app.py) · [requirements](app/requirements.txt)
+
+### Step 3: Build the Docker image
+
+A multi-stage build that runs as non-root user 10001 with gunicorn. [View the Dockerfile](app/Dockerfile)
+
+### Step 4: Create the Kind cluster
+
+```bash
+kind create cluster --name devsecops
+kubectl apply -f k8s/namespaces.yaml
+```
+
+This creates a one-node cluster and the `dev` and `prod` namespaces.
+
+> 📸 **Screenshot:** `images/kind-cluster.png` *(pending)*
+> **Capture:** `kubectl get nodes` showing `devsecops-control-plane Ready`, and `kubectl get ns dev prod`.
+
+### Step 5: Build and start Jenkins
+
+```bash
+docker build -t jenkins-devsecops:1.0 jenkins/
+docker run -d --name jenkins -u root -p 8080:8080 \
+  -v jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock \
+  --network kind jenkins-devsecops:1.0
+```
+
+The Jenkins image bundles Trivy, Semgrep, pip-audit and kubectl. Joining the `kind` network lets Jenkins reach the cluster. [View the Jenkins Dockerfile](jenkins/Dockerfile)
+
+### Step 6: Connect Jenkins to Kubernetes
+
+```bash
+kind get kubeconfig --name devsecops --internal > kind-internal.kubeconfig
+```
+
+Add it in Jenkins as a **Secret file** credential with ID `kind-kubeconfig`. `--internal` matters: the default kubeconfig points at `127.0.0.1`, which inside the Jenkins container is Jenkins itself.
+
+> 📸 **Screenshot:** `images/jenkins-credentials.png` *(pending)*
+> **Capture:** the credentials page showing `kind-kubeconfig` by ID. Do not show its contents.
+
+### Step 7: Create the Jenkins pipeline job
+
+New Item → `devsecops-pipeline` → Pipeline → **Pipeline script from SCM** → Git → script path `Jenkinsfile`. [View the Jenkinsfile](Jenkinsfile)
+
+![Build #8 checkout revision](images/build8-checkout-revision.png)
+
+*Build #8 console: Jenkins checks out the revision from GitHub.*
+
+### Step 8: Run the security pipeline
+
+Click **Build Now**. Secrets, tests, SAST, dependency scan, config scan, image build, image scan and SBOM run in order, and any failing gate stops the build.
+
+![Build #8 pipeline graph](images/jenkins-success-1.png)
+
+*Build #8: Checkout through Image scan gate, all green.*
+
+### Step 9: Deploy to dev and smoke test
+
+The image is imported into containerd with `docker save | ctr -n k8s.io images import`, deployed to `dev`, then a temporary curl pod calls `/health`. [View the deployment](k8s/deployment.yaml)
+
+![Smoke test success](images/smoke-test-success.png)
+
+*Smoke test: rollout completes, the pod returns `{"status":"ok"}` and is deleted.*
+
+![Dev pods and service](images/k8s-dev-pods.png)
+
+*`kubectl -n dev get pods,svc`: 2 pods Running (1/1, 0 restarts) and the `devsecops-app` ClusterIP service on port 80.*
+
+### Step 10: Approve and deploy to prod
+
+The pipeline pauses at **Approve prod** (15-minute timeout; a timeout is ABORTED, not FAILED). After approval the same image goes to `prod`.
+
+![Build #8 stage list](images/jenkins-success-2.png)
+
+*Build #8: Deploy to dev, Approve prod (6m 17s), Deploy to prod, Post Actions.*
+
+> 📸 **Screenshot:** `images/jenkins-prod-approval.png` *(pending)*
+> **Capture:** the "Deploy build #8 to prod?" approval prompt.
+
+### Step 11: Verify production
+
+```bash
+kubectl -n prod get pods,svc
+kubectl -n prod port-forward svc/devsecops-app 9090:80 &
+curl -s localhost:9090/version
+kubectl -n prod exec deploy/devsecops-app -- id
+kubectl -n prod exec deploy/devsecops-app -- touch /app/test
+```
+
+Expected: 2 pods Running, the version equals the build number, UID 10001, and `touch` fails with a read-only filesystem error.
+
+![Production version check](images/prod-version-check.png)
+
+*Prod `/version` through a port-forward returned `{"version":"8"}`, matching Build #8.*
+
+> 📸 **Screenshots still pending:** `images/k8s-prod-pods.png` and `images/prod-nonroot-readonly.png`
+> **Capture:** `kubectl -n prod get pods,svc` with 2 pods Running; and `id` showing UID 10001 with `touch /app/test` failing with `Read-only file system`. The version check above is captured; the non-root and read-only checks have not been captured yet.
+
+### Step 12: Verify security reports and SBOM
+
+Every build archives the scanner reports, `sbom.cdx.json`, and `security-summary.md`, and appends a row to the trend CSV. [View the summary script](scripts/security_summary.py)
+
+![Trivy image scan summary](images/trivy-image-scan.png)
+
+*Trivy image scan summary: 284 findings (2 CRITICAL, 53 HIGH), `fixable_high_crit: 0`, so the gate passes.*
+
+> 📸 **Screenshot:** `images/security-summary.png` *(pending)*
+> **Capture:** `reports/security-summary.md` from a build, showing the status table.
+
+### Step 13: Run the nightly rescan
+
+A second job, `prod-nightly-rescan`, reads the image running in prod, updates the Trivy database, rescans it, applies the same fixable HIGH/CRITICAL gate, and appends a trend row. It runs on cron `0 2 * * *`. [View the rescan Jenkinsfile](jenkins/Jenkinsfile.rescan)
+
+![Nightly rescan](images/nightly-rescan.png)
+
+*Build #1 SUCCESS, with `security-summary.md` and `trivy-image.json` archived.*
+
+### Step 14: Break-and-fix security tests *(partly done)*
+
+- **Dependency gate: done (Build #4).** I intentionally used a known vulnerable dependency (`flask==3.0.3`) in a controlled test. Flow: known vulnerable dependency → pip-audit detects the CVE → dependency scan fails → pipeline stops → nothing deploys → dependency is upgraded to `3.1.3` → pipeline passes.
+- **Planned, not completed:** fake secret, misconfigured manifest, vulnerable base image.
 
 ---
 
 ## Results
 
-**Build #8 — `Finished: SUCCESS`**
+**Build #8: `Finished: SUCCESS`**
 
-| Stage | Result | Observed |
-|-------|--------|----------|
-| Secrets scan | Pass | 0 secrets |
+| Check | Result | Observed |
+|---|---|---|
 | Unit tests | Pass | 2/2 |
-| SAST | Pass | 0 findings (151 rules, `app.py`) |
+| Secret scan | Pass | 0 secrets |
+| SAST | Pass | 0 findings (151 rules) |
 | Dependency scan | Pass | No known vulnerabilities (flask 3.1.3) |
-| Config scan | Pass | 0 HIGH/CRITICAL misconfigurations; 3 LOW (DS-0026 in both Dockerfiles, KSV-0110 in `deployment.yaml`) |
-| Build image | Pass | `devsecops-app:8` on `python:3.12-slim-bookworm` |
+| Config scan | Pass | 0 HIGH/CRITICAL misconfigurations; 3 LOW findings |
 | Image scan | Pass | 0 fixable HIGH/CRITICAL CVEs |
 | SBOM | Pass | `sbom.cdx.json` generated |
-| Deploy to dev | Pass | 2 replicas rolled out |
+| Dev rollout | Pass | 2 replicas rolled out |
 | Smoke test | Pass | `{"status":"ok"}` from `/health` |
-| Approve prod | Pass | Manually approved |
-| Deploy to prod | Pass | 2 replicas rolled out |
-| Security summary | Pass | `security-summary.md` written, trend row appended |
-
-**Failures observed along the way (real builds):**
-
-| Build | Stage | What happened | Outcome |
-|-------|-------|---------------|---------|
-| #4 | Dependency scan | `flask==3.0.3` → `PYSEC-2026-2151` | Upgraded to `3.1.3`; gate worked as designed |
-| #5, #6 | Deploy to dev | `kind load` → `failed to detect containerd snapshotter` | Replaced with `docker save \| ctr -n k8s.io images import` |
-| — | Smoke test | `--rm should only be used for attached containers` | Replaced with create/wait/logs/delete |
-| — | Post block | `security_summary.py` crashed on pip-audit's dict output | Parser now handles both formats; build was not affected |
-
-**What Build #4 shows:** a CVE is a *known software vulnerability*, not malware or a virus. The deliberately used `flask==3.0.3` has a documented flaw, and the dependency gate handled it like this: Known vulnerable dependency → pip-audit detects the CVE → dependency scan fails → pipeline stops → nothing deploys → dependency is upgraded → pipeline passes. I introduced this known vulnerable version deliberately, in a controlled test, to prove the gate stops the build before deployment.
-
-**Evidence still to capture:** approval prompt, security summary report, pods in dev and prod, `/version`, architecture diagram. The checklist is in [NOTES.md](NOTES.md).
-
-### Evidence
-
-**Build #8 — pipeline graph (Checkout SCM through Image scan gate, all green)**
-
-![Build #8 pipeline graph](images/jenkins-success-1.png)
-
-**Build #8 — remaining stages: SBOM, Deploy to dev, Approve prod (6m 17s), Deploy to prod, Post Actions**
-
-![Build #8 stage list](images/jenkins-success-2.png)
-
-**Build #8 — console: checked out revision `bf73cba` of branch `jpd-20261012`**
-
-![Build #8 checkout revision](images/build8-checkout-revision.png)
-
-**Dev smoke test — rollout completes, the smoke-test pod returns `{"status":"ok"}` and is deleted**
-
-![Smoke test success](images/smoke-test-success.png)
-
-**Trivy image scan summary — 284 findings (2 CRITICAL, 53 HIGH), `fixable_high_crit: 0`, so the gate passes**
-
-![Trivy image scan](images/trivy-image-scan.png)
-
-**Nightly rescan — Jenkins job `prod-nightly-rescan`, build #1 SUCCESS, with `security-summary.md` and `trivy-image.json` archived**
-
-![Nightly rescan](images/nightly-rescan.png)
+| Prod rollout | Pass | Manually approved; 2 replicas rolled out |
+| Security reporting | Pass | Summary written, trend row appended |
+| Nightly rescan | Pass | `prod-nightly-rescan` build #1 SUCCESS, image `devsecops-app:9`, 0 fixable HIGH/CRITICAL |
+| Dependency gate test | Pass | Build #4 blocked a known vulnerable dependency before deployment |
 
 ---
 
 ## Security Decisions
 
-- **Order: cheapest check first.** Secrets and tests run before the image build, so failures there cost little; the image build only happens after source-level checks pass.
-- **Two scanners for dependencies.** pip-audit covers Python packages; Trivy image scan covers OS packages pip-audit never sees.
-- **Pinned versions.** `requirements.txt` is pinned to exact versions so pip-audit can look up CVEs reliably. Image tags are build numbers, never `latest`.
-- **`--ignore-unfixed`.** Only findings with an available fix block the build; unfixed ones are still reported in `trivy-image.json`.
-- **Non-root, minimal image.** Multi-stage build, UID 10001, no shell, no home directory, gunicorn instead of the Flask dev server.
-- **Hardened pod spec.** `runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, drop ALL capabilities, `seccompProfile: RuntimeDefault`, no service account token, and CPU/memory requests and limits (50m/64Mi requested, 250m/128Mi limit).
-- **Build retention.** Jenkins keeps the last 10 builds and their archived reports.
-- **Human approval for prod.** Continuous delivery with a 15-minute timeout; a timeout is ABORTED, not FAILED.
-- **Reports on every build.** A blocked build still archives its scanner output so the block can be explained.
-- **Empty `.trivyignore`.** Accepted risks would need a CVE ID, expiry, reason, approver, and ticket.
+- **Fail fast.** Cheap checks run first, so most failures cost seconds.
+- **Exact dependency versions.** Pinned so pip-audit can look up vulnerabilities reliably.
+- **Non-root container.** UID 10001, multi-stage build, no shell.
+- **Hardened Kubernetes security context.** Non-root, read-only root filesystem, no privilege escalation, all capabilities dropped, seccomp default.
+- **Build-number image tags, no `latest`.** Every deployed image traces to one build.
+- **Manual production approval.** A human decides when a passing build reaches prod.
+- **Kubeconfig as a Jenkins credential.** Never stored in the repo.
+- **Reports archived on every build.** A blocked build still keeps its evidence.
+- **Unfixed CVEs reported, not blocking.** Only findings with an available fix fail the build.
 
----
-
-## Lab Shortcuts
-
-| Shortcut | Why it is fine in a lab | Production alternative |
-|----------|------------------------|------------------------|
-| Docker socket mounted into Jenkins, `-u root` | Simplest way to run `docker build` | Kaniko, Buildah, or dedicated build agents |
-| Kind instead of a managed cluster | Free, offline, real Kubernetes API | EKS, AKS, GKE |
-| No registry; `docker save \| ctr import` | Works for one local node | ECR, ACR, GCR |
-| `dev` and `prod` are namespaces in one cluster | Demonstrates the concept | Separate clusters or accounts |
-| Static kubeconfig credential | Simple | Workload identity |
-| Jenkins credential store only | Built in | Vault or a cloud secrets manager |
-| Pipeline runs on the controller | No agent setup | Dedicated agents |
-| Manual `input` approval | Easy to understand | GitOps (e.g. Argo CD) |
-
-Fuller tradeoff discussion is in [NOTES.md](NOTES.md).
+Deeper reasoning, lab shortcuts and production alternatives are in [NOTES.md](NOTES.md).
 
 ---
 
 ## Troubleshooting / Common Issues
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
+| Issue | Cause | Fix |
+|---|---|---|
+| Dependency scan fails (Build #4) | Known vulnerable `flask==3.0.3` (PYSEC-2026-2151) | Upgrade to `flask==3.1.3` |
 | `failed to detect containerd snapshotter` | `kind load` does not work from inside the Jenkins container | `docker save <image> \| docker exec -i devsecops-control-plane ctr -n k8s.io images import --all-platforms -` |
-| `ImagePullBackOff` / `ErrImageNeverPull` | Image imported without `-n k8s.io`, so Kubernetes cannot see it | Import into the `k8s.io` containerd namespace |
+| `ImagePullBackOff` / `ErrImageNeverPull` | Image imported without the `k8s.io` containerd namespace | Import with `ctr -n k8s.io` |
 | `--rm should only be used for attached containers` | Jenkins shell steps have no attached stdin | Create, wait, logs, delete pattern |
-| pip-audit stage red | Pinned package has a known CVE | Upgrade the pinned version |
-| `kubectl` connection refused from Jenkins | Kubeconfig points at `127.0.0.1` | Use `kind get kubeconfig --internal` |
-| `[summary] ERROR: 'str' object has no attribute 'get'` | pip-audit output is a dict with a `dependencies` key | Parser handles dict and legacy list |
+| `'str' object has no attribute 'get'` in the summary | pip-audit output is a dict, not a list | Parser handles both formats |
+| Summary showed `CRITICAL=0, HIGH=0…` with 284 total | Counting code read the key `Severity`, the parser stored `severity` | Fixed the default key; trend rows corrected |
+| `kubectl` connection refused from Jenkins | Default kubeconfig points at `127.0.0.1` | `kind get kubeconfig --internal` |
 
-Full stories, root-cause analysis, and diagnostic commands: [NOTES.md](NOTES.md).
+Full troubleshooting, commands, root-cause analysis and failed attempts are documented in [NOTES.md](NOTES.md).
 
 ---
 
 ## Key Takeaways
 
-- **Troubleshoot layer by layer.** The image-loading failure looked like a Kubernetes problem; testing the Docker socket, node exec, containerd, and namespace in turn located it.
-- **Separate build problems from deployment problems.** The smoke test failure happened after a successful rollout; checking pod state first narrows the cause.
-- **A gate you have seen fail is a gate you can explain.** Build #4 showed the dependency gate working; the remaining gates have not yet been deliberately exercised.
-- **Pin versions and read changelogs.** A nonexistent Trivy version and a changed pip-audit JSON format both caused misleading failures.
-- **Know the tradeoff behind every shortcut.** The lab is not production-ready, and the README says where it differs.
+- **A gate you have seen fail is a gate you can explain.** Build #4 proved the dependency gate; the other gates still need deliberate break-and-fix tests.
+- **Troubleshoot layer by layer.** The image-loading error looked like Kubernetes but was a containerd namespace issue.
+- **Check your reporting, not just your gates.** A severity-counting bug showed zeros while the gate itself worked.
+- **Nightly rescans matter.** A clean image today can have a new known vulnerability tomorrow.
+- **Know the tradeoff behind every shortcut.** The Docker socket mount, Kind and the static kubeconfig are lab choices with production alternatives.
+- **Say what is not done.** Planned work is labeled planned.
 
 ---
 
-## Honest Scope
+## Reference
 
-**What this project demonstrates:** a working scan-build-deploy-approve pipeline on a single machine, with scanners, gates, a hardened image and pod spec, a smoke test, and per-build reporting. Build #8 completed end to end.
-
-**What it does not demonstrate:**
-- Deliberate break-and-fix tests for every gate (**planned, not completed**)
-- Multi-node, multi-cluster, or cloud deployment
-- A container registry, image signing, or policy enforcement
-- Production-grade secrets management or build isolation
-- Monitoring or alerting
-
----
-
-## What I'd Do Next
-
-**Planned / Future Work — not completed:**
-
-1. Break-and-fix tests for the remaining gates: introduce a fake secret and a misconfigured manifest to prove each gate independently. (The dependency gate was already proven in Build #4 with an intentionally vulnerable dependency.)
-
-**Further improvements:**
-
-| Improvement | Adds | Priority |
-|-------------|------|----------|
-| Container registry | Pull-based deployment, multi-node support | High |
-| Managed Kubernetes | Production-grade cluster | High |
-| Kaniko or Buildah | Removes Docker socket dependency | High |
-| Workload identity | No long-lived kubeconfig | High |
-| Argo CD or Flux | GitOps audit trail and drift detection | Medium |
-| Secrets manager | Rotation and audit | Medium |
-| Cosign image signing | Proof of build origin | Medium |
-| OPA / Kyverno | Admission-time policy | Medium |
-| OWASP ZAP | Dynamic testing of the dev deployment | Medium |
-| Prometheus + Grafana | Metrics and alerting | Medium |
-| Helm, Terraform | Templating, infrastructure as code | Low |
+- [Jenkins documentation](https://www.jenkins.io/doc/)
+- [Trivy](https://trivy.dev/)
+- [Semgrep](https://semgrep.dev/docs/)
+- [pip-audit](https://github.com/pypa/pip-audit)
+- [Kind](https://kind.sigs.k8s.io/)
+- [Kubernetes documentation](https://kubernetes.io/docs/)
+- [containerd](https://containerd.io/)
+- [CycloneDX](https://cyclonedx.org/)
 
 ---
 
-## References
+**Author:** Manuel Yannick Armah
 
-- Jenkins documentation — https://www.jenkins.io/doc/
-- Trivy — https://trivy.dev/
-- Semgrep — https://semgrep.dev/docs/
-- pip-audit — https://github.com/pypa/pip-audit
-- kind — https://kind.sigs.k8s.io/
-- Kubernetes documentation — https://kubernetes.io/docs/
-- containerd — https://containerd.io/
-- CycloneDX — https://cyclonedx.org/
-- Deep notes for this project — [NOTES.md](NOTES.md)
+**Project:** Jenkins DevSecOps Pipeline with Docker and Kubernetes
+
+**Difficulty:** Intermediate
+
+**Time to Complete:** Not formally measured. One full pipeline run takes about 7 minutes (Build #8: 7 min 13 sec, including the manual approval wait).
