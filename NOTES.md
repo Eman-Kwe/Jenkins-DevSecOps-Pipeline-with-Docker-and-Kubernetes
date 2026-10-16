@@ -665,7 +665,7 @@ Finished: SUCCESS
 
 ## 16. Interview study notes
 
-These are study scripts. They describe only what has been done. The nightly rescan and break-and-fix tests are not completed and must not be presented as done.
+These are study scripts. They describe only what has been done. The break-and-fix tests are not completed and must not be presented as done. The nightly rescan is completed and verified (build #1), apart from an unobserved 02:00 scheduled firing.
 
 ### 30-second version
 
@@ -706,7 +706,7 @@ The fix was to bypass `kind load`: `docker save` streams the image as a tar, `do
 - *Why scan config before building the image?* It is faster than the build, and a bad Dockerfile is caught before spending minutes.
 - *Why `--ignore-unfixed`?* There is nothing to fix until upstream ships a patch; they remain visible in `trivy-image.json`.
 - *Why continuous delivery, not deployment?* A person decides when production changes; approval follows dev validation.
-- *What would you say is not done?* The nightly rescan and break-and-fix tests are planned, not completed.
+- *What would you say is not done?* The break-and-fix tests are planned, not completed. The nightly rescan is done and verified as a Jenkins job, but I have not watched the 02:00 schedule fire.
 
 ---
 
@@ -728,9 +728,12 @@ The fix was to bypass `kind load`: `docker save` streams the image as a tar, `do
 
 ## 18. Planned / future work
 
+**Completed and verified:**
+
+- **Nightly rescan** of the production image. Jenkins job `prod-nightly-rescan` (Pipeline script from SCM, `jenkins/Jenkinsfile.rescan`, branch `jpd-20261012`) ran as build #1 on 2026-10-16 with result SUCCESS. Console shows: `kind-kubeconfig` loaded (masked), prod image read from the deployment (`devsecops-app:9`, matching `kubectl get deployment`), Trivy DB update, full scan to `reports/trivy-image.json`, HIGH/CRITICAL fixable gate clean, `security_summary.py` ran, and a `nightly-1` row was appended to `security-trends.csv` (`image_total` 284, matching build #9). Archived: `security-summary.md`, `trivy-image.json`. The summary warns that the secrets, config, pip-audit and semgrep reports are absent; that is expected, since the rescan only scans the image. Cron `0 2 * * *` is in the Jenkinsfile and registered on the job as a `TimerTrigger`; the 02:00 firing itself was not waited for. An earlier bug (rescan wrote `trivy-image-rescan.json`, which the summary script does not read) was fixed in commit `20cdb1f`.
+
 **Not completed:**
 
-- **Nightly rescan** of the production image against current CVE data. `jenkins/Jenkinsfile.rescan` is written (cron `0 2 * * *`, reads the prod image from the deployment, rescans with a fresh Trivy DB, same HIGH/CRITICAL fixable gate) but has not been run as a Jenkins job. **Verified by hand (2026-10-15):** inside the Jenkins container, `trivy image --download-db-only`, the full JSON scan and the `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1` gate were run against `devsecops-app:9` (the image in prod); the gate exited 0. **Bug found and fixed:** the Jenkinsfile wrote `reports/trivy-image-rescan.json` while `scripts/security_summary.py` reads `trivy-image.json`, so the summary would have shown zero image findings; it now writes `trivy-image.json`. **Still open:** the job has to be created in Jenkins, and the `kind-kubeconfig` credential, `kubectl get deployment` stage and the 02:00 cron have not been exercised.
 - **Break-and-fix tests** for each gate: fake secret, vulnerable dependency, misconfigured manifest, vulnerable base image
 
 **Further improvements:**
