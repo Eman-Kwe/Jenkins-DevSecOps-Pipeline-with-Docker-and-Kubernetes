@@ -13,7 +13,7 @@
 |------|-------|
 | Core pipeline (scan → build → dev → approval → prod) | **Complete** — Build #8 deployed successfully to prod |
 | Security reporting (`security_summary.py`, trend CSV, archived reports) | **Complete** |
-| Nightly rescan of the production image | **Partially verified** — the scan commands were run by hand inside the Jenkins container against `devsecops-app:9` (DB update, full scan, HIGH/CRITICAL gate: clean, exit 0). `jenkins/Jenkinsfile.rescan` has **not yet run as a Jenkins job** (job not created, cron not exercised) |
+| Nightly rescan of the production image | **Completed and verified** — Jenkins job `prod-nightly-rescan` (Pipeline from SCM, `jenkins/Jenkinsfile.rescan`) ran as build #1 on 2026-10-16: read the prod image (`devsecops-app:9`) via `kind-kubeconfig`, updated the Trivy DB, scanned, passed the HIGH/CRITICAL gate, wrote `trivy-image.json`, appended a `nightly-1` row to `security-trends.csv`, result **SUCCESS**. Cron `0 2 * * *` is registered on the job; the 02:00 run itself has not been waited for |
 | Break-and-fix tests for every gate | **Planned / Future Work** — not completed; only the dependency-scan gate has been observed failing a real build (Build #4) |
 | Screenshots | **Pending** — checklist in [NOTES.md](NOTES.md) |
 | Video walkthrough | **Pending** |
@@ -93,7 +93,7 @@ jenkins-devsecops-pipeline/
 │
 ├── jenkins/
 │   ├── Dockerfile               ← Jenkins 2.504.3 + Trivy + Semgrep + pip-audit + kubectl
-│   └── Jenkinsfile.rescan       ← nightly rescan — scan steps verified by hand, not yet run as a Jenkins job
+│   └── Jenkinsfile.rescan       ← nightly rescan — verified as Jenkins job `prod-nightly-rescan` (build #1 SUCCESS)
 │
 ├── k8s/
 │   ├── namespaces.yaml          ← dev and prod
@@ -341,7 +341,6 @@ Full stories, root-cause analysis, and diagnostic commands: [NOTES.md](NOTES.md)
 **What this project demonstrates:** a working scan-build-deploy-approve pipeline on a single machine, with scanners, gates, a hardened image and pod spec, a smoke test, and per-build reporting. Build #8 completed end to end.
 
 **What it does not demonstrate:**
-- A nightly rescan running as a scheduled Jenkins job (**steps verified by hand only; job not yet created or run**)
 - Deliberate break-and-fix tests for every gate (**planned, not completed**)
 - Multi-node, multi-cluster, or cloud deployment
 - A container registry, image signing, or policy enforcement
@@ -354,8 +353,7 @@ Full stories, root-cause analysis, and diagnostic commands: [NOTES.md](NOTES.md)
 
 **Planned / Future Work — not completed:**
 
-1. Create the `prod-nightly-rescan` job in Jenkins and confirm it runs on schedule (scan steps already verified by hand)
-2. Break-and-fix tests: introduce a fake secret, a vulnerable dependency, and a misconfigured manifest to prove each gate independently
+1. Break-and-fix tests: introduce a fake secret, a vulnerable dependency, and a misconfigured manifest to prove each gate independently
 
 **Further improvements:**
 
