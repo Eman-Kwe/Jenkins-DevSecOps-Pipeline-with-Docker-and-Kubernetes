@@ -41,7 +41,7 @@ def load_json(path: Path) -> dict | list | None:
         return None
 
 
-def severity_counts(findings: list[dict], severity_key: str = "Severity") -> dict:
+def severity_counts(findings: list[dict], severity_key: str = "severity") -> dict:
     """Count findings by severity label, case-insensitive."""
     counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
     for f in findings:
@@ -126,15 +126,22 @@ def parse_trivy_image(data: dict | None) -> dict:
     return result
 
 
-def parse_pip_audit(data: list | None) -> dict:
+def parse_pip_audit(data: dict | list | None) -> dict:
     """
     pip-audit --format json
-    Top-level list of {name, version, vulns: [{id, fix_versions, description}]}.
+    pip-audit 2.7.3 outputs a dict: {"dependencies": [{name, version, vulns: [...]}]}
+    Older versions output a bare list: [{name, version, vulns: [...]}]
+    This function handles both formats.
     """
     result = {"total": 0, "findings": []}
     if not data:
         return result
-    for pkg in data or []:
+    # Normalise: extract the list regardless of whether it is wrapped in a dict
+    if isinstance(data, dict):
+        packages = data.get("dependencies", []) or []
+    else:
+        packages = data or []
+    for pkg in packages:
         for vuln in pkg.get("vulns", []) or []:
             result["total"] += 1
             result["findings"].append({
