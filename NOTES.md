@@ -758,17 +758,19 @@ The fix was to bypass `kind load`: `docker save` streams the image as a tar, `do
 
 ## 19. Screenshots checklist
 
-All pending; `images/` is currently empty. Capture from the working project before it is shut down.
+Six are captured and committed in `images/` (ticked below); the rest are pending. Capture them from the working project before it is shut down.
 
 - [ ] **Architecture diagram** — `images/architecture-diagram.png` — GitHub, Jenkins, scan stages, Docker, Kind, dev, approval gate, prod
-- [ ] **Jenkins full successful pipeline** — `images/jenkins-success.png` — Stage View for build #8, all stages green
+- [x] **Jenkins full successful pipeline** — `images/jenkins-success-1.png`, `images/jenkins-success-2.png` — Stage View for build #8, all stages green
 - [ ] **Manual production approval prompt** — `images/jenkins-prod-approval.png` — "Deploy build #8 to prod?"
 - [ ] **Security summary report** — `images/security-summary.png` — `reports/security-summary.md` from build #8
-- [ ] **Trivy image scan result** — `images/trivy-image-scan.png` — console output with all-zero counts
+- [x] **Trivy image scan result** — `images/trivy-image-scan.png` — summary JSON: 284 total, `fixable_high_crit: 0`
 - [ ] **Kubernetes dev pods** — `images/k8s-dev-pods.png` — `kubectl get pods,svc -n dev`
 - [ ] **Kubernetes production pods** — `images/k8s-prod-pods.png` — `kubectl get pods,svc -n prod`
 - [ ] **Production version verification** — `images/prod-version-check.png` — `curl -s localhost:9090/version` → `{"version":"8"}`
-- [ ] **Smoke test success** — `images/smoke-test-success.png` — `{"status":"ok"}` and `pod "smoke-test" deleted`
+- [x] **Smoke test success** — `images/smoke-test-success.png` — `{"status":"ok"}` and `pod "smoke-test" deleted`
 - [ ] **Application health endpoint** — `images/health-endpoint.png` — `/health` response
 - [ ] **Jenkins credentials page** — `images/jenkins-credentials.png` — `kind-kubeconfig` by ID; do not show contents
+- [x] **Build #8 checkout revision** — `images/build8-checkout-revision.png` — console showing the checked-out commit
+- [x] **Nightly rescan** — `images/nightly-rescan.png` — `prod-nightly-rescan` build #1 SUCCESS
 - [ ] **Kind cluster nodes** — `images/kind-cluster.png` — `kubectl get nodes` and `kubectl get ns dev prod`

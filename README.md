@@ -15,7 +15,7 @@
 | Security reporting (`security_summary.py`, trend CSV, archived reports) | **Complete** |
 | Nightly rescan of the production image | **Completed and verified** — Jenkins job `prod-nightly-rescan` (Pipeline from SCM, `jenkins/Jenkinsfile.rescan`) ran as build #1 on 2026-10-16: read the prod image (`devsecops-app:9`) via `kind-kubeconfig`, updated the Trivy DB, scanned, passed the HIGH/CRITICAL gate, wrote `trivy-image.json`, appended a `nightly-1` row to `security-trends.csv`, result **SUCCESS**. Cron `0 2 * * *` is registered on the job; the 02:00 run itself has not been waited for |
 | Break-and-fix tests for every gate | **Planned / Future Work** — not completed; only the dependency-scan gate has been observed failing a real build (Build #4) |
-| Screenshots | **Pending** — checklist in [NOTES.md](NOTES.md) |
+| Screenshots | **Partly captured** — 6 in [Evidence](#evidence); remaining items in the checklist in [NOTES.md](NOTES.md) |
 | Video walkthrough | **Pending** |
 
 ---
@@ -103,7 +103,7 @@ jenkins-devsecops-pipeline/
 ├── scripts/
 │   └── security_summary.py      ← scanner JSON → security-summary.md + trend CSV
 │
-└── images/                      ← screenshots (empty — pending)
+└── images/                      ← Jenkins and security evidence screenshots
 ```
 
 ---
@@ -275,7 +275,33 @@ High-level path (full commands, flags, expected output, and verification are in 
 | — | Smoke test | `--rm should only be used for attached containers` | Replaced with create/wait/logs/delete |
 | — | Post block | `security_summary.py` crashed on pip-audit's dict output | Parser now handles both formats; build was not affected |
 
-**Evidence still to capture:** screenshots (Stage View, approval prompt, security summary, Trivy image scan, pods in dev and prod, `/version`). The checklist is in [NOTES.md](NOTES.md).
+**Evidence still to capture:** approval prompt, security summary report, pods in dev and prod, `/version`, architecture diagram. The checklist is in [NOTES.md](NOTES.md).
+
+### Evidence
+
+**Build #8 — pipeline graph (Checkout SCM through Image scan gate, all green)**
+
+![Build #8 pipeline graph](images/jenkins-success-1.png)
+
+**Build #8 — remaining stages: SBOM, Deploy to dev, Approve prod (6m 17s), Deploy to prod, Post Actions**
+
+![Build #8 stage list](images/jenkins-success-2.png)
+
+**Build #8 — console: checked out revision `bf73cba` of branch `jpd-20261012`**
+
+![Build #8 checkout revision](images/build8-checkout-revision.png)
+
+**Dev smoke test — rollout completes, the smoke-test pod returns `{"status":"ok"}` and is deleted**
+
+![Smoke test success](images/smoke-test-success.png)
+
+**Trivy image scan summary — 284 findings (2 CRITICAL, 53 HIGH), `fixable_high_crit: 0`, so the gate passes**
+
+![Trivy image scan](images/trivy-image-scan.png)
+
+**Nightly rescan — Jenkins job `prod-nightly-rescan`, build #1 SUCCESS, with `security-summary.md` and `trivy-image.json` archived**
+
+![Nightly rescan](images/nightly-rescan.png)
 
 ---
 
