@@ -10,18 +10,6 @@ A Jenkins pipeline that runs automated security and quality gates on a Python we
 
 > **Pending.** The video has not been recorded yet. The link above is a placeholder until I add it.
 
-### Status
-
-| Area | State |
-|---|---|
-| Core pipeline (scan → build → dev → approval → prod) | **Complete.** Build #8 deployed to prod |
-| Security reporting (summary, trend CSV, archived reports) | **Complete** |
-| Nightly rescan of the prod image | **Completed and verified.** Job `prod-nightly-rescan`, build #1 SUCCESS; cron `0 2 * * *` registered, 02:00 firing not yet observed |
-| Break-and-fix tests | **Partly done.** Dependency gate proven in Build #4 with an intentionally vulnerable dependency; fake secret, misconfigured manifest and base-image tests are **planned** |
-| Screenshots | **Partly captured** (8 so far). Remaining ones are marked 📸 in the steps below |
-| Video walkthrough | **Pending** |
-
-
 ---
 
 ## Project Overview
