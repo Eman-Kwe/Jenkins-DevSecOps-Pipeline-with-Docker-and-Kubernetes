@@ -730,7 +730,7 @@ The fix was to bypass `kind load`: `docker save` streams the image as a tar, `do
 
 **Not completed:**
 
-- **Nightly rescan** of the production image against current CVE data. `jenkins/Jenkinsfile.rescan` is written (cron `0 2 * * *`, reads the prod image from the deployment, rescans with a fresh Trivy DB, same HIGH/CRITICAL fixable gate) but has not been run or verified. **Known bug:** it writes `reports/trivy-image-rescan.json`, while `scripts/security_summary.py` reads `trivy-image.json`, so its summary and trend row would show zero image findings regardless of the scan result. The job also has to be created in Jenkins separately.
+- **Nightly rescan** of the production image against current CVE data. `jenkins/Jenkinsfile.rescan` is written (cron `0 2 * * *`, reads the prod image from the deployment, rescans with a fresh Trivy DB, same HIGH/CRITICAL fixable gate) but has not been run as a Jenkins job. **Verified by hand (2026-10-15):** inside the Jenkins container, `trivy image --download-db-only`, the full JSON scan and the `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1` gate were run against `devsecops-app:9` (the image in prod); the gate exited 0. **Bug found and fixed:** the Jenkinsfile wrote `reports/trivy-image-rescan.json` while `scripts/security_summary.py` reads `trivy-image.json`, so the summary would have shown zero image findings; it now writes `trivy-image.json`. **Still open:** the job has to be created in Jenkins, and the `kind-kubeconfig` credential, `kubectl get deployment` stage and the 02:00 cron have not been exercised.
 - **Break-and-fix tests** for each gate: fake secret, vulnerable dependency, misconfigured manifest, vulnerable base image
 
 **Further improvements:**

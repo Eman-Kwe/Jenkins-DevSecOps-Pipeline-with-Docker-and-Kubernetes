@@ -80,7 +80,7 @@ pipeline {
                     # Full scan — write JSON report with all findings.
                     trivy image \
                         --format json \
-                        --output ${REPORTS_DIR}/trivy-image-rescan.json \
+                        --output ${REPORTS_DIR}/trivy-image.json \
                         --exit-code 0 \
                         --quiet \
                         ${env.PROD_IMAGE}
