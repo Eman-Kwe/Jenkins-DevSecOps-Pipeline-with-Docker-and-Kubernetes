@@ -1,0 +1,137 @@
+// Nightly rescan pipeline — prod-nightly-rescan
+// -----------------------------------------------
+// A clean image today can be vulnerable tomorrow.
+// New CVEs are published every day against packages that are already deployed.
+// This job finds whatever image is currently running in prod, rescans it with
+// today's CVE database, and fails if a new fixable HIGH or CRITICAL is found.
+//
+// Schedule: runs every night at 02:00.
+// Fix for a failure: rebuild the main pipeline — it pulls the newest base image patch.
+
+pipeline {
+
+    agent any
+
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+    }
+
+    // Run every night at 2:00 AM.
+    // cron format: minute hour day-of-month month day-of-week
+    triggers {
+        cron('0 2 * * *')
+    }
+
+    environment {
+        REPORTS_DIR = "reports"
+    }
+
+    stages {
+
+        // ------------------------------------------------------------------ //
+        // STAGE 1 — Find the image running in prod
+        // Reads the image tag from the running deployment so we rescan the exact
+        // artifact that is deployed — not a freshly built one.
+        // ------------------------------------------------------------------ //
+        stage('Get prod image') {
+            steps {
+                withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
+                    script {
+                        // Ask Kubernetes what image the prod deployment is currently using.
+                        // jsonpath extracts just the image field from the first container.
+                        env.PROD_IMAGE = sh(
+                            script: """
+                                kubectl get deployment devsecops-app \
+                                    -n prod \
+                                    -o jsonpath='{.spec.template.spec.containers[0].image}'
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        echo "Prod is running: ${env.PROD_IMAGE}"
+
+                        // Fail fast if prod has nothing deployed yet
+                        if (!env.PROD_IMAGE) {
+                            error("No image found in prod deployment — has the main pipeline run yet?")
+                        }
+                    }
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ //
+        // STAGE 2 — Rescan the prod image
+        // Same rules as the main pipeline image scan gate:
+        //   - Fail on HIGH or CRITICAL CVEs that have a fix available
+        //   - --ignore-unfixed: unfixed CVEs are reported but don't block
+        // A failure here means a new CVE was published since the last build.
+        // The fix is to trigger the main pipeline — it pulls the patched base image.
+        // ------------------------------------------------------------------ //
+        stage('Rescan prod image') {
+            steps {
+                sh """
+                    mkdir -p ${REPORTS_DIR}
+
+                    # Update the Trivy vulnerability database before scanning.
+                    # This is what makes the nightly rescan useful — fresh CVE data.
+                    trivy image --download-db-only --quiet
+
+                    # Full scan — write JSON report with all findings.
+                    trivy image \
+                        --format json \
+                        --output ${REPORTS_DIR}/trivy-image.json \
+                        --exit-code 0 \
+                        --quiet \
+                        ${env.PROD_IMAGE}
+
+                    # Gate: fail on fixable HIGH/CRITICAL CVEs.
+                    # Same threshold as the main pipeline image scan gate.
+                    trivy image \
+                        --severity HIGH,CRITICAL \
+                        --ignore-unfixed \
+                        --exit-code 1 \
+                        --quiet \
+                        ${env.PROD_IMAGE}
+                """
+            }
+        }
+
+    } // end stages
+
+    post {
+        always {
+            sh """
+                mkdir -p ${REPORTS_DIR}
+
+                # Run the summary script — appends a row to the trend CSV
+                # so nightly scans show up in the same trend data as main builds.
+                python3 scripts/security_summary.py \
+                    --build-number "nightly-${env.BUILD_NUMBER}" \
+                    --build-url    ${env.BUILD_URL} \
+                    --reports-dir  ${REPORTS_DIR} || true
+            """
+
+            archiveArtifacts artifacts: "${REPORTS_DIR}/**",
+                             allowEmptyArchive: true
+
+            cleanWs()
+        }
+
+        failure {
+            // A failure means a new exploitable CVE is in prod.
+            // In a real program this would page the on-call team.
+            echo """
+                ========================================================
+                NIGHTLY RESCAN FAILED
+                A new fixable HIGH or CRITICAL CVE was found in prod.
+                Action: trigger the main pipeline to rebuild with the
+                        latest base image patch.
+                Image scanned: ${env.PROD_IMAGE}
+                Build: ${env.BUILD_URL}
+                ========================================================
+            """
+        }
+    }
+
+}
