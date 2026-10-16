@@ -41,7 +41,7 @@ def load_json(path: Path) -> dict | list | None:
         return None
 
 
-def severity_counts(findings: list[dict], severity_key: str = "Severity") -> dict:
+def severity_counts(findings: list[dict], severity_key: str = "severity") -> dict:
     """Count findings by severity label, case-insensitive."""
     counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
     for f in findings:
