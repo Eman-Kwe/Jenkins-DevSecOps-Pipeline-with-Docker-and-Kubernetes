@@ -188,7 +188,7 @@ Screenshot notes are marked 📸. Full commands and expected output for every st
 Clone the repo and confirm Docker, kind, kubectl and Python are installed.
 
 ```bash
-git clone https://github.com/accouny-name/project-name.git
+git clone https://github.com/Eman-Kwe/Jenkins-DevSecOps-Pipeline-with-Docker-and-Kubernetes.git
 ```
 
 ### Step 2: Build the application and tests
