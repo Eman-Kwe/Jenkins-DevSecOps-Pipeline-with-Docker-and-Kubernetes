@@ -2,8 +2,6 @@
 
 A Jenkins pipeline that runs automated security and quality gates on a Python web app, builds a Docker image, and deploys it to Kubernetes dev and then prod, with a human approval before production. Everything runs on one local machine (WSL2, Docker, Kind).
 
-> **Status:** Core pipeline complete (Build #8 deployed to prod). Nightly rescan completed and verified. Break-and-fix tests for the remaining gates, some screenshots, and the video are still pending. Details in the Status table below.
-
 ### 🎬 Video Walkthrough
 
 [Watch the project walkthrough](VIDEO_LINK_HERE)
@@ -279,8 +277,8 @@ Expected: 2 pods Running, the version equals the build number, UID 10001, and `t
 
 *Prod `/version` through a port-forward returned `{"version":"8"}`, matching Build #8.*
 
-> 📸 **Screenshots still pending:** `images/k8s-prod-pods.png` and `images/prod-nonroot-readonly.png`
-> **Capture:** `kubectl -n prod get pods,svc` with 2 pods Running; and `id` showing UID 10001 with `touch /app/test` failing with `Read-only file system`. The version check above is captured; the non-root and read-only checks have not been captured yet.
+<img width="1153" height="212" alt="Screenshot 2026-10-16 000930" src="https://github.com/user-attachments/assets/08d79627-f3fc-4fbe-a8b2-694263e0046a" />
+
 
 ### Step 12: Verify security reports and SBOM
 
@@ -290,8 +288,8 @@ Every build archives the scanner reports, `sbom.cdx.json`, and `security-summary
 
 *Trivy image scan summary: 284 findings (2 CRITICAL, 53 HIGH), `fixable_high_crit: 0`, so the gate passes.*
 
-> 📸 **Screenshot:** `images/security-summary.png` *(pending)*
-> **Capture:** `reports/security-summary.md` from a build, showing the status table.
+<img width="812" height="265" alt="Screenshot 2026-10-17 194216" src="https://github.com/user-attachments/assets/81147081-3655-40a5-99e3-ed9fc13fd106" />
+
 
 ### Step 13: Run the nightly rescan
 
@@ -392,4 +390,4 @@ Full troubleshooting, commands, root-cause analysis and failed attempts are docu
 
 **Difficulty:** Intermediate
 
-**Time to Complete:** 1-3 hours
+**Time to Complete:** 1-3 hours     One full pipeline run takes about 7 minutes, including the manual approval wait (Build #8: 7 min 13 sec)
