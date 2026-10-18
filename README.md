@@ -390,4 +390,5 @@ Full troubleshooting, commands, root-cause analysis and failed attempts are docu
 
 **Difficulty:** Intermediate
 
-**Time to Complete:** 1-3 hours     One full pipeline run takes about 7 minutes, including the manual approval wait (Build #8: 7 min 13 sec)
+**Time to Complete:** 1-3 hours     
+One full pipeline run takes about 7 minutes, including the manual approval wait (Build #9: 2 min 47 sec).
