@@ -44,7 +44,7 @@ This is a single-machine lab, not a production system. It shows the practice com
 |---|---|
 | Flask application (`/`, `/health`, `/version`) | Built |
 | pytest unit tests (2 tests) | Built, passing |
-| Jenkins declarative pipeline | Built, Build #8 SUCCESS |
+| Jenkins declarative pipeline | Built, Build #9 SUCCESS |
 | Trivy secret scan | Built, passing |
 | Semgrep SAST (`p/python`) | Built, passing |
 | pip-audit dependency scan | Built, passing (and failed correctly in Build #4) |
@@ -55,7 +55,7 @@ This is a single-machine lab, not a production system. It shows the practice com
 | Kind Kubernetes cluster | Built |
 | `dev` and `prod` namespaces | Built |
 | Smoke test (`/health`) | Built, passing |
-| Production approval (15-minute timeout) | Built, used in Build #8 |
+| Production approval (15-minute timeout) | Built, used in Build #9 |
 | Security summary and trend CSV | Built, working |
 | Nightly rescan job | Built and verified (build #1) |
 
@@ -238,6 +238,10 @@ Click **Build Now**. Secrets, tests, SAST, dependency scan, config scan, image b
 
 *Build #8: Checkout through Image scan gate, all green.*
 
+![Build #9 pipeline overview](images/build9-pipeline-overview.png)
+
+*Build #9: all 12 stages green. Total 2 min 47 sec, including a 1 min 22 sec manual approval.*
+
 ### Step 9: Deploy to dev and smoke test
 
 The image is imported into containerd with `docker save | ctr -n k8s.io images import`, deployed to `dev`, then a temporary curl pod calls `/health`. [View the deployment](k8s/deployment.yaml)
@@ -258,8 +262,10 @@ The pipeline pauses at **Approve prod** (15-minute timeout; a timeout is ABORTED
 
 *Build #8: Deploy to dev, Approve prod (6m 17s), Deploy to prod, Post Actions.*
 
-> 📸 **Screenshot:** `images/jenkins-prod-approval.png` *(pending)*
-> **Capture:** the "Deploy build #8 to prod?" approval prompt.
+![Build #9 status](images/build9-status.png)
+
+*Build #9: SUCCESS, approved by Eman Kwe, with all scan reports archived.*
+
 
 ### Step 11: Verify production
 
@@ -275,7 +281,7 @@ Expected: 2 pods Running, the version equals the build number, UID 10001, and `t
 
 ![Production version check](images/prod-version-check.png)
 
-*Prod `/version` through a port-forward returned `{"version":"8"}`, matching Build #8.*
+*Prod `/version` through a port-forward returned `{"version":"8"}`, matching Build #8 (captured on Build #8).*
 
 <img width="1153" height="212" alt="Screenshot 2026-10-16 000930" src="https://github.com/user-attachments/assets/08d79627-f3fc-4fbe-a8b2-694263e0046a" />
 
@@ -308,7 +314,9 @@ A second job, `prod-nightly-rescan`, reads the image running in prod, updates th
 
 ## Results
 
-**Build #8: `Finished: SUCCESS`**
+**Build #9: `Finished: SUCCESS`**
+
+Build #8 was the first full run to prod. Build #9 is the current production build (same pipeline, re-run after documentation commits).
 
 | Check | Result | Observed |
 |---|---|---|
@@ -390,5 +398,4 @@ Full troubleshooting, commands, root-cause analysis and failed attempts are docu
 
 **Difficulty:** Intermediate
 
-**Time to Complete:** 1-3 hours     
-One full pipeline run takes about 7 minutes, including the manual approval wait (Build #9: 2 min 47 sec).
+**Time to Complete:** 1-3 hours to rebuild from this guide (estimate). One full pipeline run takes about 3 minutes, including the manual approval click (Build #9: 2 min 47 sec).
