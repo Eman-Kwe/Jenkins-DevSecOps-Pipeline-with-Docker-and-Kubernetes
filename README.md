@@ -2,19 +2,6 @@
 
 A Jenkins pipeline that runs automated security and quality gates on a Python web app, builds a Docker image, and deploys it to Kubernetes dev and then prod, with a human approval before production. Everything runs on one local machine (WSL2, Docker, Kind).
 
-> **Status:** Core pipeline complete (Build #9 deployed to prod). Nightly rescan completed and verified. Break-and-fix tests for the remaining gates, some screenshots, and the video are still pending. Details in the Status table below.
-
-### Status
-
-| Area | State |
-|---|---|
-| Core pipeline (scan → build → dev → approval → prod) | **Complete.** Build #9 deployed to prod |
-| Security reporting (summary, trend CSV, archived reports) | **Complete** |
-| Nightly rescan of the prod image | **Completed and verified.** Job `prod-nightly-rescan`, build #1 SUCCESS; cron `0 2 * * *` registered, 02:00 firing not yet observed |
-| Break-and-fix tests | **Partly done.** Dependency gate proven in Build #4 with an intentionally vulnerable dependency; fake secret, misconfigured manifest and base-image tests are **planned** |
-| Screenshots | **Partly captured** (8 so far). Remaining ones are marked 📸 in the steps below |
-| Video walkthrough | **Pending** |
-
 ### 🎬 Video Walkthrough
 
 [Watch the project walkthrough](VIDEO_LINK_HERE)
@@ -118,13 +105,8 @@ Key files: [Jenkinsfile](Jenkinsfile) · [Nightly rescan Jenkinsfile](jenkins/Je
 
 ## Architecture Diagram
 
-```text
-GitHub → Jenkins → security gates → Docker image → image scan + SBOM
-       → Kind / containerd → dev → smoke test → approval → prod
-```
+<img width="1536" height="1024" alt="Modern Jenkins DevSecOps Pipeline Infographic" src="https://github.com/user-attachments/assets/7dc3fc0a-7c21-45e3-a829-4e1e6b0a4e2b" />
 
-> 📸 **Screenshot:** `images/architecture-diagram.png` *(pending; not yet created)*
-> **Capture:** GitHub, Jenkins, the scan gates, Docker, Kind, dev, smoke test, approval gate, prod. When it exists, replace the text flow above with `![Architecture](images/architecture-diagram.png)`.
 
 Jenkins runs as a Docker container using the host Docker socket. The Kind node is another Docker container with containerd inside. There is no registry: images are built by Docker and imported straight into containerd.
 
@@ -222,10 +204,6 @@ kind create cluster --name devsecops
 kubectl apply -f k8s/namespaces.yaml
 ```
 
-This creates a one-node cluster and the `dev` and `prod` namespaces.
-
-> 📸 **Screenshot:** `images/kind-cluster.png` *(pending)*
-> **Capture:** `kubectl get nodes` showing `devsecops-control-plane Ready`, and `kubectl get ns dev prod`.
 
 ### Step 5: Build and start Jenkins
 
@@ -243,11 +221,6 @@ The Jenkins image bundles Trivy, Semgrep, pip-audit and kubectl. Joining the `ki
 ```bash
 kind get kubeconfig --name devsecops --internal > kind-internal.kubeconfig
 ```
-
-Add it in Jenkins as a **Secret file** credential with ID `kind-kubeconfig`. `--internal` matters: the default kubeconfig points at `127.0.0.1`, which inside the Jenkins container is Jenkins itself.
-
-> 📸 **Screenshot:** `images/jenkins-credentials.png` *(pending)*
-> **Capture:** the credentials page showing `kind-kubeconfig` by ID. Do not show its contents.
 
 ### Step 7: Create the Jenkins pipeline job
 
@@ -293,6 +266,7 @@ The pipeline pauses at **Approve prod** (15-minute timeout; a timeout is ABORTED
 
 *Build #9: SUCCESS, approved by Eman Kwe, with all scan reports archived.*
 
+
 ### Step 11: Verify production
 
 ```bash
@@ -309,8 +283,8 @@ Expected: 2 pods Running, the version equals the build number, UID 10001, and `t
 
 *Prod `/version` through a port-forward returned `{"version":"8"}`, matching Build #8 (captured on Build #8).*
 
-> 📸 **Screenshots still pending:** `images/k8s-prod-pods.png` and `images/prod-nonroot-readonly.png`
-> **Capture:** `kubectl -n prod get pods,svc` with 2 pods Running; and `id` showing UID 10001 with `touch /app/test` failing with `Read-only file system`. The version check above is captured; the non-root and read-only checks have not been captured yet.
+<img width="1153" height="212" alt="Screenshot 2026-10-16 000930" src="https://github.com/user-attachments/assets/08d79627-f3fc-4fbe-a8b2-694263e0046a" />
+
 
 ### Step 12: Verify security reports and SBOM
 
@@ -320,8 +294,8 @@ Every build archives the scanner reports, `sbom.cdx.json`, and `security-summary
 
 *Trivy image scan summary: 284 findings (2 CRITICAL, 53 HIGH), `fixable_high_crit: 0`, so the gate passes.*
 
-> 📸 **Screenshot:** `images/security-summary.png` *(pending)*
-> **Capture:** `reports/security-summary.md` from a build, showing the status table.
+<img width="812" height="265" alt="Screenshot 2026-10-17 194216" src="https://github.com/user-attachments/assets/81147081-3655-40a5-99e3-ed9fc13fd106" />
+
 
 ### Step 13: Run the nightly rescan
 
