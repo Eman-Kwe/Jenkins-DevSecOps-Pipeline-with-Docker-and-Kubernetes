@@ -179,7 +179,7 @@ Detailed setup is in [NOTES.md](NOTES.md).
 
 ## Project Steps
 
-Screenshot notes are marked 📸. Full commands and expected output for every step are in [NOTES.md](NOTES.md).
+Screenshot notes are marked. Full commands and expected output for every step are in [NOTES.md](NOTES.md).
 
 ### Step 1: Prepare the environment
 
