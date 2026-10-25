@@ -104,7 +104,7 @@ Key files: [Jenkinsfile](Jenkinsfile) · [Nightly rescan Jenkinsfile](jenkins/Je
 
 ## Architecture Diagram
 
-<img width="1672" height="941" alt="Jenkins DevSecOps Pipeline Architecture (1)" src="https://github.com/user-attachments/assets/b47f1eba-74c8-4f28-a443-7682e5d86d02" />
+![Jenkins DevSecOps pipeline architecture](images/architecture-diagram.png)
 
 
 Jenkins runs as a Docker container using the host Docker socket. The Kind node is another Docker container with containerd inside. There is no registry: images are built by Docker and imported straight into containerd.
@@ -300,7 +300,7 @@ Expected: 2 pods Running, the version equals the build number, UID 10001, and `t
 
 *The prod container runs as UID 10001, and writing to `/app` fails with `Read-only file system`. That error is the expected result.*
 
-<img width="1153" height="212" alt="Screenshot 2026-10-16 000930" src="https://github.com/user-attachments/assets/08d79627-f3fc-4fbe-a8b2-694263e0046a" />
+![Production pods and service](images/k8s-prod-pods.png)
 
 ### Step 12: Verify security reports and SBOM
 
@@ -310,7 +310,7 @@ Every build archives the scanner reports, `sbom.cdx.json`, and `security-summary
 
 *Trivy image scan summary: 284 findings (2 CRITICAL, 53 HIGH), `fixable_high_crit: 0`, so the gate passes.*
 
-<img width="812" height="265" alt="Screenshot 2026-10-17 194216" src="https://github.com/user-attachments/assets/81147081-3655-40a5-99e3-ed9fc13fd106" />
+![Security summary status at a glance](images/security-summary.png)
 
 ### Step 13: Run the nightly rescan
 
