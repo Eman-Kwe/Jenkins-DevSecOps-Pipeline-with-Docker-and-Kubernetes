@@ -78,7 +78,6 @@ DevSecOps builds security into every stage instead of bolting it on at the end. 
 ```text
 jenkins-devsecops-pipeline/
 ├── README.md                    ← project story, architecture, results
-├── NOTES.md                     ← deep engineering notes and troubleshooting
 ├── Jenkinsfile                  ← the pipeline (11 stages + post block)
 ├── .trivyignore                 ← accepted-risk register (starts empty)
 ├── .gitignore
