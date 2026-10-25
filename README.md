@@ -266,6 +266,14 @@ The image is imported into containerd with `docker save | ctr -n k8s.io images i
 
 The pipeline pauses at **Approve prod** (15-minute timeout; a timeout is ABORTED, not FAILED). After approval the same image goes to `prod`.
 
+![Build #11 approval prompt](images/jenkins-prod-approval.png)
+
+*Build #11 paused at Approve prod with "Deploy build #11 to prod?" and Approve and Abort buttons. Every scan and the dev deploy have already passed.*
+
+![Build #11 approved](images/jenkins-prod-approved.png)
+
+*After the click, the log shows "Approved by Eman Kwe", then Deploy to prod and Post Actions finish green.*
+
 ![Build #8 stage list](images/jenkins-success-2.png)
 
 *Build #8: Deploy to dev, Approve prod (6m 17s), Deploy to prod, Post Actions.*
