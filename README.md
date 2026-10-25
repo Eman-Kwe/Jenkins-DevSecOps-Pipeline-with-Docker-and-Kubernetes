@@ -104,7 +104,8 @@ Key files: [Jenkinsfile](Jenkinsfile) · [Nightly rescan Jenkinsfile](jenkins/Je
 
 ## Architecture Diagram
 
-<img width="1536" height="1024" alt="Modern Jenkins DevSecOps Pipeline Infographic" src="https://github.com/user-attachments/assets/7dc3fc0a-7c21-45e3-a829-4e1e6b0a4e2b" />
+<img width="1672" height="941" alt="Jenkins DevSecOps Pipeline Architecture (1)" src="https://github.com/user-attachments/assets/b47f1eba-74c8-4f28-a443-7682e5d86d02" />
+
 
 Jenkins runs as a Docker container using the host Docker socket. The Kind node is another Docker container with containerd inside. There is no registry: images are built by Docker and imported straight into containerd.
 
@@ -408,4 +409,4 @@ Build #8 was the first full run to prod. Build #9 is the current production buil
 
 **Difficulty:** Intermediate
 
-**Time to Complete:** 1-3 hours to rebuild from this guide (estimate). One full pipeline run takes about 3 minutes, including the manual approval click (Build #9: 2 min 47 sec).
+**Time to Complete:** 1-3 hours  
