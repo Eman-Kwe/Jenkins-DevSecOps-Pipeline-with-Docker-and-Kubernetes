@@ -204,6 +204,10 @@ kind create cluster --name devsecops
 kubectl apply -f k8s/namespaces.yaml
 ```
 
+![Kind cluster nodes and namespaces](images/kind-cluster.png)
+
+*The `devsecops` Kind node is Ready, and the `dev` and `prod` namespaces are Active.*
+
 
 ### Step 5: Build and start Jenkins
 
@@ -221,6 +225,10 @@ The Jenkins image bundles Trivy, Semgrep, pip-audit and kubectl. Joining the `ki
 ```bash
 kind get kubeconfig --name devsecops --internal > kind-internal.kubeconfig
 ```
+
+![Jenkins kubeconfig credential](images/jenkins-credentials.png)
+
+*The kubeconfig is stored as a Jenkins secret file and used by the pipeline and the nightly rescan job. Only the usage page is shown, never the contents.*
 
 ### Step 7: Create the Jenkins pipeline job
 
@@ -282,6 +290,14 @@ Expected: 2 pods Running, the version equals the build number, UID 10001, and `t
 ![Production version check](images/prod-version-check.png)
 
 *Prod `/version` through a port-forward returned `{"version":"8"}`, matching Build #8 (captured on Build #8).*
+
+![Health and version endpoints](images/health-endpoint.png)
+
+*`/health` returns `{"status":"ok"}` and `/version` returns `{"version":"10"}`, matching Build #10.*
+
+![Non-root and read-only check](images/prod-nonroot-readonly.png)
+
+*The prod container runs as UID 10001, and writing to `/app` fails with `Read-only file system`. That error is the expected result.*
 
 <img width="1153" height="212" alt="Screenshot 2026-10-16 000930" src="https://github.com/user-attachments/assets/08d79627-f3fc-4fbe-a8b2-694263e0046a" />
 
