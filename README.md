@@ -36,7 +36,7 @@ Security is often a final manual review, after vulnerable libraries are already 
 | **Ongoing protection** | The nightly rescan flags new vulnerabilities in software that is already running in production |
 | **Consistency** | The same gates run the same way every time, instead of depending on who remembered to check |
 
-This is a single-machine lab, not a production system. It shows the practice companies use, and [NOTES.md](NOTES.md) lists what would change at real scale (managed Kubernetes, a container registry, separate build agents).
+This is a single-machine lab, not a production system. It shows the practice companies use, and a production version would use managed Kubernetes, a container registry, and separate build agents.
 
 ### What gets built
 
@@ -78,7 +78,6 @@ This is a single-machine lab, not a production system. It shows the practice com
 ```text
 jenkins-devsecops-pipeline/
 ├── README.md
-├── NOTES.md                     # deep engineering notes
 ├── Jenkinsfile                  # main pipeline
 ├── app/
 │   ├── app.py                   # Flask app
@@ -99,14 +98,13 @@ jenkins-devsecops-pipeline/
 └── LICENSE
 ```
 
-Key files: [Jenkinsfile](Jenkinsfile) · [Nightly rescan Jenkinsfile](jenkins/Jenkinsfile.rescan) · [Application Dockerfile](app/Dockerfile) · [Jenkins Dockerfile](jenkins/Dockerfile) · [Kubernetes deployment](k8s/deployment.yaml) · [Security summary script](scripts/security_summary.py) · [Engineering notes](NOTES.md)
+Key files: [Jenkinsfile](Jenkinsfile) · [Nightly rescan Jenkinsfile](jenkins/Jenkinsfile.rescan) · [Application Dockerfile](app/Dockerfile) · [Jenkins Dockerfile](jenkins/Dockerfile) · [Kubernetes deployment](k8s/deployment.yaml) · [Security summary script](scripts/security_summary.py)
 
 ---
 
 ## Architecture Diagram
 
 <img width="1536" height="1024" alt="Modern Jenkins DevSecOps Pipeline Infographic" src="https://github.com/user-attachments/assets/7dc3fc0a-7c21-45e3-a829-4e1e6b0a4e2b" />
-
 
 Jenkins runs as a Docker container using the host Docker socket. The Kind node is another Docker container with containerd inside. There is no registry: images are built by Docker and imported straight into containerd.
 
@@ -121,8 +119,6 @@ Jenkins runs as a Docker container using the host Docker socket. The Kind node i
 7. **Deploy to prod.** The same verified image is promoted to `prod`.
 8. **Report.** Jenkins archives the reports and appends a row to the security trend CSV.
 9. **Nightly rescan.** A second job rescans the image running in prod against current vulnerability data.
-
-Stage-by-stage gates and commands are in [NOTES.md](NOTES.md).
 
 ### Key terms
 
@@ -157,8 +153,6 @@ Stage-by-stage gates and commands are in [NOTES.md](NOTES.md).
 | Jenkins | 2.504.3 LTS (JDK 17) |
 | Trivy (in the Jenkins image) | v0.75.0 |
 
-Detailed setup is in [NOTES.md](NOTES.md).
-
 ---
 
 ## Naming Conventions Used
@@ -179,7 +173,7 @@ Detailed setup is in [NOTES.md](NOTES.md).
 
 ## Project Steps
 
-Screenshot notes are marked. Full commands and expected output for every step are in [NOTES.md](NOTES.md).
+Screenshot notes are marked.
 
 ### Step 1: Prepare the environment
 
@@ -207,7 +201,6 @@ kubectl apply -f k8s/namespaces.yaml
 ![Kind cluster nodes and namespaces](images/kind-cluster.png)
 
 *The `devsecops` Kind node is Ready, and the `dev` and `prod` namespaces are Active.*
-
 
 ### Step 5: Build and start Jenkins
 
@@ -282,7 +275,6 @@ The pipeline pauses at **Approve prod** (15-minute timeout; a timeout is ABORTED
 
 *Build #9: SUCCESS, approved by Eman Kwe, with all scan reports archived.*
 
-
 ### Step 11: Verify production
 
 ```bash
@@ -309,7 +301,6 @@ Expected: 2 pods Running, the version equals the build number, UID 10001, and `t
 
 <img width="1153" height="212" alt="Screenshot 2026-10-16 000930" src="https://github.com/user-attachments/assets/08d79627-f3fc-4fbe-a8b2-694263e0046a" />
 
-
 ### Step 12: Verify security reports and SBOM
 
 Every build archives the scanner reports, `sbom.cdx.json`, and `security-summary.md`, and appends a row to the trend CSV. [View the summary script](scripts/security_summary.py)
@@ -319,7 +310,6 @@ Every build archives the scanner reports, `sbom.cdx.json`, and `security-summary
 *Trivy image scan summary: 284 findings (2 CRITICAL, 53 HIGH), `fixable_high_crit: 0`, so the gate passes.*
 
 <img width="812" height="265" alt="Screenshot 2026-10-17 194216" src="https://github.com/user-attachments/assets/81147081-3655-40a5-99e3-ed9fc13fd106" />
-
 
 ### Step 13: Run the nightly rescan
 
@@ -372,8 +362,6 @@ Build #8 was the first full run to prod. Build #9 is the current production buil
 - **Reports archived on every build.** A blocked build still keeps its evidence.
 - **Unfixed CVEs reported, not blocking.** Only findings with an available fix fail the build.
 
-Deeper reasoning, lab shortcuts and production alternatives are in [NOTES.md](NOTES.md).
-
 ---
 
 ## Troubleshooting / Common Issues
@@ -387,8 +375,6 @@ Deeper reasoning, lab shortcuts and production alternatives are in [NOTES.md](NO
 | `'str' object has no attribute 'get'` in the summary | pip-audit output is a dict, not a list | Parser handles both formats |
 | Summary showed `CRITICAL=0, HIGH=0…` with 284 total | Counting code read the key `Severity`, the parser stored `severity` | Fixed the default key; trend rows corrected |
 | `kubectl` connection refused from Jenkins | Default kubeconfig points at `127.0.0.1` | `kind get kubeconfig --internal` |
-
-Full troubleshooting, commands, root-cause analysis and failed attempts are documented in [NOTES.md](NOTES.md).
 
 ---
 
