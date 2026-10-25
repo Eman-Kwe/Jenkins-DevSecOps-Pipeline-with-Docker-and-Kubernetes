@@ -15,7 +15,7 @@
 | Security reporting (`security_summary.py`, trend CSV, archived reports) | **Complete** |
 | Nightly rescan of the production image | **Completed and verified** — Jenkins job `prod-nightly-rescan` (Pipeline from SCM, `jenkins/Jenkinsfile.rescan`) ran as build #1 on 2026-10-16: read the prod image (`devsecops-app:9`) via `kind-kubeconfig`, updated the Trivy DB, scanned, passed the HIGH/CRITICAL gate, wrote `trivy-image.json`, appended a `nightly-1` row to `security-trends.csv`, result **SUCCESS**. Cron `0 2 * * *` is registered on the job; the 02:00 run itself has not been waited for |
 | Break-and-fix tests for every gate | **Planned / Future Work** — not completed; only the dependency-scan gate has been observed failing a real build (Build #4) |
-| Screenshots | **Partly captured** — 6 in [Evidence](#evidence); remaining items in the checklist in [NOTES.md](NOTES.md) |
+| Screenshots | **Partly captured** — 6 in [Evidence](#evidence) |
 | Video walkthrough | **Pending** |
 
 ---
@@ -173,8 +173,6 @@ Jenkins runs as a Docker container and uses the host Docker socket. The Kind nod
 | 11 | Deploy to prod | kubectl | Rollout failure fails |
 | post | Security summary, archive reports, clean workspace | `security_summary.py` | Runs on every build |
 
-Command-level detail for each stage is in [NOTES.md](NOTES.md).
-
 ---
 
 ## Key Terms
@@ -231,7 +229,7 @@ Command-level detail for each stage is in [NOTES.md](NOTES.md).
 
 ## Project Steps
 
-High-level path (full commands, flags, expected output, and verification are in [NOTES.md](NOTES.md)):
+High-level path:
 
 1. Clone the repository.
 2. Build the custom Jenkins image (`jenkins/Dockerfile`).
@@ -276,7 +274,7 @@ High-level path (full commands, flags, expected output, and verification are in 
 
 **What Build #4 shows:** a CVE is a *known software vulnerability*, not malware or a virus. The deliberately used `flask==3.0.3` has a documented flaw, and the dependency gate handled it like this: Known vulnerable dependency → pip-audit detects the CVE → dependency scan fails → pipeline stops → nothing deploys → dependency is upgraded → pipeline passes. I introduced this known vulnerable version deliberately, in a controlled test, to prove the gate stops the build before deployment.
 
-**Evidence still to capture:** approval prompt, security summary report, pods in dev and prod, `/version`, architecture diagram. The checklist is in [NOTES.md](NOTES.md).
+**Evidence still to capture:** approval prompt, security summary report, pods in dev and prod, `/version`, architecture diagram.
 
 ### Evidence
 
@@ -334,8 +332,6 @@ High-level path (full commands, flags, expected output, and verification are in 
 | Pipeline runs on the controller | No agent setup | Dedicated agents |
 | Manual `input` approval | Easy to understand | GitOps (e.g. Argo CD) |
 
-Fuller tradeoff discussion is in [NOTES.md](NOTES.md).
-
 ---
 
 ## Troubleshooting / Common Issues
@@ -348,8 +344,6 @@ Fuller tradeoff discussion is in [NOTES.md](NOTES.md).
 | pip-audit stage red | Pinned package has a known CVE | Upgrade the pinned version |
 | `kubectl` connection refused from Jenkins | Kubeconfig points at `127.0.0.1` | Use `kind get kubeconfig --internal` |
 | `[summary] ERROR: 'str' object has no attribute 'get'` | pip-audit output is a dict with a `dependencies` key | Parser handles dict and legacy list |
-
-Full stories, root-cause analysis, and diagnostic commands: [NOTES.md](NOTES.md).
 
 ---
 
@@ -410,4 +404,3 @@ Full stories, root-cause analysis, and diagnostic commands: [NOTES.md](NOTES.md)
 - Kubernetes documentation — https://kubernetes.io/docs/
 - containerd — https://containerd.io/
 - CycloneDX — https://cyclonedx.org/
-- Deep notes for this project — [NOTES.md](NOTES.md)
