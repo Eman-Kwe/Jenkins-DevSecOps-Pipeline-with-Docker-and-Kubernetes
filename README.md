@@ -355,7 +355,7 @@ Build #8 was the first full run to prod. Build #9 is the current production buil
 
 - **Fail fast.** Cheap checks run first, so most failures cost seconds.
 - **Exact dependency versions.** Pinned so pip-audit can look up vulnerabilities reliably.
-- **Non-root container.** UID 10001, multi-stage build, no shell.
+- **Non-root container.** UID 10001, multi-stage build.
 - **Hardened Kubernetes security context.** Non-root, read-only root filesystem, no privilege escalation, all capabilities dropped, seccomp default.
 - **Build-number image tags, no `latest`.** Every deployed image traces to one build.
 - **Manual production approval.** A human decides when a passing build reaches prod.
