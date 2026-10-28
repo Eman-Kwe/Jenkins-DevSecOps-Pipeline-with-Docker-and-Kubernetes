@@ -6,7 +6,6 @@ A Jenkins pipeline that runs automated security and quality gates on a Python we
 
 [Watch the project walkthrough](https://www.loom.com/share/699cc182688f490ea55bd6f2be69d51e)
 
-> **Pending.** The video has not been recorded yet. The link above is a placeholder until I add it.
 
 ---
 
